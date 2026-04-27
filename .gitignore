@@ -1,0 +1,27 @@
+﻿node_modules/
+.next/
+.env
+.env.local
+.env.*.local
+dist/
+build/
+*.log
+.DS_Store
+.git/
+tsconfig.tsbuildinfo
+
+# Local SQLite database (datos locales, no subir a git)
+prisma/local.db
+prisma/*.db
+
+# Tablet bundle output
+dist-tablet/
+
+# Backup files - importantes pero no en git
+backups/
+*.backup
+*.bak
+temp-*.js
+check-*.js
+quick-entry.js
+restore-*.js

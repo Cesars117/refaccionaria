@@ -1,0 +1,168 @@
+name: Build & Deploy to Vercel + Hostinger
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+env:
+  NODE_VERSION: '20'
+  POSTGRES_URL: postgresql://fallback:pass@localhost:5432/fallback
+
+jobs:
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+      
+      - run: npm install
+      
+      - name: Setup environment
+        run: |
+          echo "POSTGRES_URL=postgresql://fallback:pass@localhost:5432/fallback" > .env
+        env:
+          POSTGRES_URL: postgresql://fallback:pass@localhost:5432/fallback
+      
+      - run: npx prisma generate
+        env:
+          POSTGRES_URL: postgresql://fallback:pass@localhost:5432/fallback
+      
+      - run: npm run lint
+      - run: npm run build
+        env:
+          POSTGRES_URL: postgresql://fallback:pass@localhost:5432/fallback
+      
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-artifacts
+          path: .next/standalone
+
+  deploy-vercel:
+    name: Deploy to Vercel
+    runs-on: ubuntu-latest
+    needs: build
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    steps:
+      - uses: actions/checkout@v4
+      
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+      
+      - run: npm install -g vercel
+      - run: npm install
+      
+      - name: Setup environment
+        run: |
+          echo "POSTGRES_URL=${{ secrets.POSTGRES_URL || 'postgresql://fallback:pass@localhost:5432/fallback' }}" > .env
+        env:
+          POSTGRES_URL: ${{ secrets.POSTGRES_URL || 'postgresql://fallback:pass@localhost:5432/fallback' }}
+      
+      - run: npx prisma generate
+        env:
+          POSTGRES_URL: ${{ secrets.POSTGRES_URL || 'postgresql://fallback:pass@localhost:5432/fallback' }}
+      
+      - name: Seed production database
+        run: node add-data.mjs
+        env:
+          POSTGRES_URL: ${{ secrets.POSTGRES_URL }}
+        continue-on-error: true
+      
+      - name: Deploy to Vercel
+        run: |
+          vercel --token="${{ secrets.VERCEL_TOKEN }}" --prod --yes
+        env:
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+          POSTGRES_URL: ${{ secrets.POSTGRES_URL }}
+        continue-on-error: true
+
+  deploy-hostinger:
+    name: Deploy to Hostinger
+    runs-on: ubuntu-latest
+    needs: build
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    steps:
+      - uses: actions/checkout@v4
+      
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+      
+      - run: npm install
+      
+      - name: Setup environment
+        run: |
+          echo "POSTGRES_URL=${{ secrets.POSTGRES_URL || 'postgresql://fallback:pass@localhost:5432/fallback' }}" > .env
+        env:
+          POSTGRES_URL: ${{ secrets.POSTGRES_URL || 'postgresql://fallback:pass@localhost:5432/fallback' }}
+      
+      - run: npx prisma generate
+        env:
+          POSTGRES_URL: ${{ secrets.POSTGRES_URL || 'postgresql://fallback:pass@localhost:5432/fallback' }}
+      - run: npm run build
+        env:
+          POSTGRES_URL: ${{ secrets.POSTGRES_URL || 'postgresql://fallback:pass@localhost:5432/fallback' }}
+      
+      - name: Seed production database
+        run: node add-data.mjs
+        env:
+          POSTGRES_URL: ${{ secrets.POSTGRES_URL }}
+        continue-on-error: true
+      
+      - name: Prepare deployment package
+        run: |
+          mkdir -p .next/standalone/public
+          mkdir -p .next/standalone/.next/static
+          mkdir -p .next/standalone/prisma
+          cp -r public/* .next/standalone/public/ 2>/dev/null || true
+          cp -r .next/static/* .next/standalone/.next/static/ 2>/dev/null || true
+          cp -r prisma/* .next/standalone/prisma/ 2>/dev/null || true
+          cp package.json .next/standalone/ 2>/dev/null || true
+      
+      - name: Setup SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.HOSTINGER_SSH_KEY }}" > ~/.ssh/hostinger_key
+          chmod 600 ~/.ssh/hostinger_key
+          ssh-keyscan -p ${{ secrets.HOSTINGER_SSH_PORT }} ${{ secrets.HOSTINGER_HOST }} >> ~/.ssh/known_hosts 2>/dev/null || true
+      
+      - name: Deploy to Hostinger
+        run: |
+          cd .next/standalone
+          zip -r ../deploy.zip . -q
+          cd ..
+          # Crear directorio si no existe
+          ssh -p "${{ secrets.HOSTINGER_SSH_PORT }}" -i ~/.ssh/hostinger_key "${{ secrets.HOSTINGER_USER }}@${{ secrets.HOSTINGER_HOST }}" "mkdir -p '${{ secrets.HOSTINGER_PATH }}'"
+          # Subir archivo
+          scp -P "${{ secrets.HOSTINGER_SSH_PORT }}" -i ~/.ssh/hostinger_key deploy.zip "${{ secrets.HOSTINGER_USER }}@${{ secrets.HOSTINGER_HOST }}:${{ secrets.HOSTINGER_PATH }}/"
+          # Desplegar
+          ssh -p "${{ secrets.HOSTINGER_SSH_PORT }}" -i ~/.ssh/hostinger_key "${{ secrets.HOSTINGER_USER }}@${{ secrets.HOSTINGER_HOST }}" << 'EOF'
+          cd "${{ secrets.HOSTINGER_PATH }}"
+          unzip -o deploy.zip > /dev/null
+          rm deploy.zip
+          # Verificar Node.js y dar instrucciones si no existe
+          if ! command -v node &> /dev/null; then
+            echo "Node.js not found. Please install Node.js manually:"
+            echo "For CentOS/RHEL: curl -fsSL https://rpm.nodesource.com/setup_20.x | sudo bash - && sudo yum install -y nodejs"
+            echo "For Ubuntu/Debian: curl -fsSL https://deb.nodesource.com/setup_20.x | sudo bash - && sudo apt-get install -y nodejs"
+            echo "Or download from: https://nodejs.org/en/download/"
+            exit 1
+          fi
+          # Instalar dependencias y ejecutar deploy
+          npm install --omit=dev
+          POSTGRES_URL="${{ secrets.POSTGRES_URL }}" npx prisma db push
+          POSTGRES_URL="${{ secrets.POSTGRES_URL }}" npx prisma generate
+          EOF
+        env:
+          POSTGRES_URL: ${{ secrets.POSTGRES_URL }}
