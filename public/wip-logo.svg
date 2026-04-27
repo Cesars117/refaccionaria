@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <rect width="512" height="512" rx="64" fill="#1a237e"/>
+  <!-- Swoosh arcs -->
+  <g transform="translate(40, 120)">
+    <path d="M30,180 Q30,60 180,40" stroke="#c8a415" stroke-width="18" fill="none" stroke-linecap="round"/>
+    <path d="M20,200 Q15,50 200,25" stroke="#c8a415" stroke-width="14" fill="none" stroke-linecap="round"/>
+    <path d="M12,220 Q5,40 220,12" stroke="#c8a415" stroke-width="10" fill="none" stroke-linecap="round"/>
+  </g>
+  <!-- WIP text -->
+  <text x="256" y="340" text-anchor="middle" font-family="Arial Black, Arial, Helvetica, sans-serif" font-weight="900" font-size="180" fill="#1a3a8f" stroke="#ffffff" stroke-width="2">
+    <tspan fill="#ffffff">W</tspan><tspan fill="#ffffff">I</tspan><tspan fill="#ffffff">P</tspan>
+  </text>
+</svg>

@@ -1,0 +1,226 @@
+generator client {
+  provider = "prisma-client-js"
+  previewFeatures = ["driverAdapters"]
+}
+
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Item {
+  id          Int      @id @default(autoincrement())
+  name        String
+  description String?
+  quantity    Int      @default(0)
+  sku         String?  @unique
+  barcode     String?  @unique
+  imageUrl    String?
+  status      String   @default("AVAILABLE") // AVAILABLE, OUT_OF_STOCK, DISCONTINUED
+  
+  // Pricing fields
+  costPrice   Float    @default(0)
+  salePrice   Float    @default(0)
+  
+  // Material-specific fields
+  unitType    String?  @default("units") // units, boxes, liters, etc.
+  unitsPerBox Int?     
+  totalUnits  Int?     
+  
+  category    Category @relation(fields: [categoryId], references: [id])
+  categoryId  Int
+  
+  location    Location @relation(fields: [locationId], references: [id])
+  locationId  Int
+
+  serialNumbers SerialNumber[]
+  serviceItems  ServiceOrderItem[]
+  purchaseItems PurchaseOrderItem[]
+
+  createdAt   DateTime @default(now())
+
+  updatedAt   DateTime @updatedAt
+}
+
+model SerialNumber {
+  id            Int      @id @default(autoincrement())
+  serialNumber  String?  
+  
+  item          Item     @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  itemId        Int
+
+  createdAt     DateTime @default(now())
+}
+
+model Category {
+  id          Int      @id @default(autoincrement())
+  name        String   @unique
+  description String?
+  items       Item[]
+}
+
+model Location {
+  id          Int      @id @default(autoincrement())
+  name        String   @unique
+  description String?
+  type        String   @default("WAREHOUSE") // WAREHOUSE, VEHICLE, SHELF
+  items       Item[]
+}
+
+model Client {
+  id            Int            @id @default(autoincrement())
+  name          String         @unique // e.g. "Coyote"
+  phone         String?
+  email         String?
+  address       String?
+  vehicles      Vehicle[]
+  projects      Project[]
+  serviceOrders ServiceOrder[]
+  invoices      Invoice[]
+  createdAt     DateTime       @default(now())
+}
+
+model Vehicle {
+  id            Int            @id @default(autoincrement())
+  model         String         // e.g. "Nissan 300"
+  plate         String?        @unique
+  clientId      Int
+  client        Client         @relation(fields: [clientId], references: [id])
+  projects      Project[]
+  serviceOrders ServiceOrder[]
+  createdAt     DateTime       @default(now())
+}
+
+model ServiceOrder {
+  id            Int               @id @default(autoincrement())
+  orderNumber   String            @unique // e.g. "INV-2024-001"
+  status        String            @default("PENDING") // PENDING, COMPLETED, CANCELLED
+  type          String            @default("GENERAL") // FRENOS, DISCOS, RADIADORES, GENERAL
+  
+  clientId      Int
+  client        Client            @relation(fields: [clientId], references: [id])
+  vehicleId     Int?
+  vehicle       Vehicle?          @relation(fields: [vehicleId], references: [id])
+  projectId     Int?
+  project       Project?          @relation(fields: [projectId], references: [id])
+
+  
+  laborCost     Float             @default(0)
+  totalAmount   Float             @default(0)
+  
+  itemsUsed     ServiceOrderItem[]
+  
+  createdAt     DateTime          @default(now())
+  updatedAt     DateTime          @updatedAt
+}
+
+model ServiceOrderItem {
+  id             Int          @id @default(autoincrement())
+  serviceOrderId Int
+  serviceOrder   ServiceOrder @relation(fields: [serviceOrderId], references: [id], onDelete: Cascade)
+  
+  itemId         Int
+  item           Item         @relation(fields: [itemId], references: [id])
+  
+  quantity       Int          @default(1)
+  unitPrice      Float        // Price at the time of service
+  costPrice      Float        // Cost at the time of service
+}
+
+model Project {
+  id            Int            @id @default(autoincrement())
+  name          String         // e.g. "Mantenimiento Preventivo Flota Nissan"
+  status        String         @default("ACTIVE") // ACTIVE, COMPLETED, ON_HOLD
+  
+  clientId      Int
+  client        Client         @relation(fields: [clientId], references: [id])
+  vehicleId     Int?
+  vehicle       Vehicle?       @relation(fields: [vehicleId], references: [id])
+  
+  serviceOrders ServiceOrder[]
+  invoices      Invoice[]
+  
+  startDate     DateTime?      @default(now())
+  endDate       DateTime?
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+}
+
+model Invoice {
+  id            Int      @id @default(autoincrement())
+  invoiceNumber String   @unique
+  status        String   @default("PENDING") // PENDING, PAID, CANCELLED
+  total         Float    @default(0)
+  
+  clientId      Int
+  client        Client   @relation(fields: [clientId], references: [id])
+  projectId     Int?
+  project       Project? @relation(fields: [projectId], references: [id])
+  
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
+
+model Expense {
+  id            Int      @id @default(autoincrement())
+  description   String
+  amount        Float
+  category      String   @default("GENERAL") // REPLACEMENTS, LABOR, OVERHEAD
+  date          DateTime @default(now())
+  createdAt     DateTime @default(now())
+}
+
+model Supplier {
+  id            Int             @id @default(autoincrement())
+  name          String          @unique
+  phone         String?
+  email         String?
+  address       String?
+  purchaseOrders PurchaseOrder[]
+  createdAt     DateTime        @default(now())
+}
+
+model PurchaseOrder {
+  id            Int                 @id @default(autoincrement())
+  orderNumber   String              @unique // e.g. "PUR-2024-001"
+  status        String              @default("RECEIVED") // PENDING, RECEIVED, CANCELLED
+  totalAmount   Float               @default(0)
+  
+  supplierId    Int
+  supplier      Supplier            @relation(fields: [supplierId], references: [id])
+  
+  itemsBought   PurchaseOrderItem[]
+  
+  createdAt     DateTime            @default(now())
+  updatedAt     DateTime            @updatedAt
+}
+
+model PurchaseOrderItem {
+  id              Int           @id @default(autoincrement())
+  purchaseOrderId Int
+  purchaseOrder   PurchaseOrder @relation(fields: [purchaseOrderId], references: [id], onDelete: Cascade)
+  
+  itemId          Int
+  item            Item          @relation(fields: [itemId], references: [id])
+  
+  quantity        Int           @default(1)
+  costPrice       Float         // Price at the time of purchase
+}
+
+// --- Audit Log ---
+model AuditLog {
+  id            Int      @id @default(autoincrement())
+  userId        String
+  userEmail     String?
+  userName      String?
+  action        String   // CREATED, UPDATED, DELETED, QTY_CHANGED, SALE, ENTRY, PURCHASE
+  entityType    String   // ITEM, CLIENT, SERVICE_ORDER, PROJECT, PURCHASE_ORDER, SUPPLIER
+  entityId      Int
+  entityLabel   String?
+  fieldChanged  String?
+  oldValue      String?
+  newValue      String?
+  metadata      String?  // JSON string
+  createdAt     DateTime @default(now())
+}

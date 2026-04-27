@@ -1,0 +1,13 @@
+# USAR ESTOS COMANDOS para Prisma en PowerShell:
+
+# Para migrate status:
+$env:POSTGRES_URL="postgres://be161ddc55b93736b3cfc4287ceb21dd62dcbb39dc6abb5c07bff54dac2916e0:sk_LCUT6SFxAl6uv3JQMOChy@db.prisma.io:5432/postgres?sslmode=require" ; npx prisma migrate status
+
+# Para db push:
+$env:POSTGRES_URL="postgres://be161ddc55b93736b3cfc4287ceb21dd62dcbb39dc6abb5c07bff54dac2916e0:sk_LCUT6SFxAl6uv3JQMOChy@db.prisma.io:5432/postgres?sslmode=require" ; npx prisma db push
+
+# Para studio:
+$env:POSTGRES_URL="postgres://be161ddc55b93736b3cfc4287ceb21dd62dcbb39dc6abb5c07bff54dac2916e0:sk_LCUT6SFxAl6uv3JQMOChy@db.prisma.io:5432/postgres?sslmode=require" ; npx prisma studio
+
+# Para generar cliente:
+$env:POSTGRES_URL="postgres://be161ddc55b93736b3cfc4287ceb21dd62dcbb39dc6abb5c07bff54dac2916e0:sk_LCUT6SFxAl6uv3JQMOChy@db.prisma.io:5432/postgres?sslmode=require" ; npx prisma generate
