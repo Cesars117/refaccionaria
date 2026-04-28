@@ -12,7 +12,8 @@ export const authOptions: NextAuthOptions = {
       },
       async authorize(credentials) {
         // Simple hardcoded auth for now - can be improved later
-        if (credentials?.username === "admin" && credentials?.password === "wip2026!") {
+        if (credentials?.username === "admin" && credentials?.password === "coyote2026!") {
+
           return {
             id: "1",
             name: "WIP Admin",

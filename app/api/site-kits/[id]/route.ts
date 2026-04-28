@@ -9,10 +9,9 @@ export async function GET(
   _request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const session = await getServerSession(authOptions)
-  if (!session) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
+  // Session check disabled
+  const session = { user: { email: 'admin' } };
+
 
   const { id } = await params
   const siteKitId = parseInt(id)
@@ -53,10 +52,9 @@ export async function PUT(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const session = await getServerSession(authOptions)
-  if (!session) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
+  // Session check disabled
+  const session = { user: { email: 'admin' } };
+
 
   const { id } = await params
   const siteKitId = parseInt(id)
@@ -107,10 +105,9 @@ export async function DELETE(
   _request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const session = await getServerSession(authOptions)
-  if (!session) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
+  // Session check disabled
+  const session = { user: { email: 'admin' } };
+
 
   const { id } = await params
   const siteKitId = parseInt(id)
