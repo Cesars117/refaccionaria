@@ -14,7 +14,6 @@ interface Invoice {
 }
 
 interface FinancePageClientProps {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   stats: any
 
   invoices: Invoice[]

@@ -16,7 +16,7 @@ export default function Header() {
     if (pathname.startsWith('/finance')) return 'Finanzas';
     if (pathname.startsWith('/audit-log')) return 'Audit Log';
     if (pathname.startsWith('/reportes')) return 'Reportes';
-    return 'Refaccionaria Coyote';
+    return 'A/C Radiamex';
   };
 
   return (

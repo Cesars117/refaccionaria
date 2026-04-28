@@ -27,6 +27,7 @@ const eslintConfig = defineConfig([
     "prisma-helper.ps1",
     // Backup and temporary files:
     "backups/**",
+    "dist-tablet/**",
     "scripts/**",
     "*.backup.js",
     "check-*.js",

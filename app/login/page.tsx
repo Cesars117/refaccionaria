@@ -1,6 +1,7 @@
 'use client'
 
 import { signIn } from "next-auth/react"
+import Image from 'next/image'
 import { useState } from "react"
 import { useRouter } from "next/navigation"
 
@@ -53,22 +54,27 @@ export default function LoginPage() {
       }}>
         <div style={{ textAlign: 'center', marginBottom: '2.5rem' }}>
           <div style={{ 
-            fontSize: '3rem', 
+            position: 'relative',
             marginBottom: '1rem',
-            background: 'rgba(59, 130, 246, 0.1)',
-            width: '80px',
-            height: '80px',
-            lineHeight: '80px',
-            borderRadius: '50%',
+            background: '#fff',
+            width: '96px',
+            height: '96px',
+            borderRadius: '12px',
             margin: '0 auto 1.5rem auto'
           }}>
-            🐺
+            <Image
+              src="/logoradiamex.jpg"
+              alt="A/C Radiamex"
+              fill
+              style={{ objectFit: 'cover', borderRadius: '12px' }}
+              priority
+            />
           </div>
           <h1 style={{ fontSize: '1.75rem', fontWeight: '800', marginBottom: '0.5rem', color: '#111827', letterSpacing: '-0.025em' }}>
-            Refaccionaria Coyote
+            A/C Radiamex
           </h1>
           <p style={{ color: '#6b7280', fontSize: '0.95rem' }}>
-            Sistema de Gestión de Inventario
+            Venta de Radiadores y Sistemas de Enfriamiento
           </p>
         </div>
 
@@ -158,8 +164,8 @@ export default function LoginPage() {
 
         <div style={{ marginTop: '2rem', padding: '1.25rem', backgroundColor: '#f9fafb', borderRadius: '8px', border: '1px solid #f3f4f6' }}>
           <p style={{ fontSize: '0.8125rem', color: '#6b7280', margin: 0, textAlign: 'center' }}>
-            <strong>Acceso administrativo:</strong><br />
-            admin / coyote2026!
+            <strong>A/C Radiamex</strong><br />
+            Usa tus credenciales de acceso.
           </p>
         </div>
       </div>

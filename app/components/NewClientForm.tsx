@@ -32,7 +32,7 @@ export function NewClientForm({ createClient }: NewClientFormProps) {
           name="name"
           type="text"
           required
-          placeholder="Ej. Coyote"
+          placeholder="Ej. Transportes del Norte"
           style={{ width: "100%", padding: "12px", background: "var(--bg-elevated)", border: "1px solid var(--border-light)", color: "var(--text-main)", borderRadius: "var(--radius-sm)", outline: "none" }}
         />
       </div>

@@ -1,168 +1,134 @@
-import { getDashboardStats, getItems } from "../actions";
-import { DashboardContent } from "../components/DashboardContent";
-import Link from 'next/link';
-import { ArrowLeft, TrendingUp, DollarSign, Package, AlertCircle, BarChart3, Clock, CheckCircle } from 'lucide-react';
+import db from '@/lib/db';
+import { formatCurrency } from '@/lib/utils';
+import { Package, Users, FileText, Wrench, AlertTriangle, TrendingUp } from 'lucide-react';
 
-export const dynamic = 'force-dynamic'
+export const dynamic = 'force-dynamic';
 
 export default async function ReportesPage() {
-  const { itemCount, clientCount, projectCount, totalValue, revenue, costs } = await getDashboardStats();
-  
-  // Calcular métricas adicionales para los reportes estilo Hunter
-  const marginPct = revenue > 0 ? Math.round((totalValue / revenue) * 100) : 0;
-  const avgProfitPerItem = itemCount > 0 ? Math.round(totalValue / itemCount) : 0;
-  
+  const [
+    partCount,
+    customerCount,
+    quotes,
+    projects,
+    lowStockParts,
+  ] = await Promise.all([
+    db.part.count(),
+    db.customer.count(),
+    db.quote.findMany({ select: { status: true, total: true } }),
+    db.maintenanceProject.groupBy({ by: ['status'], _count: { id: true } }),
+    db.part.findMany({
+      where: { quantity: { lte: db.part.fields.minStock } },
+      orderBy: { quantity: 'asc' },
+      take: 10,
+      include: { category: true, location: true },
+    }).catch(() => [] as any[]),
+  ]);
+
+  const totalRevenue = quotes.filter((q) => q.status === 'SOLD').reduce((s, q) => s + q.total, 0);
+  const pendingRevenue = quotes.filter((q) => q.status === 'PENDING').reduce((s, q) => s + q.total, 0);
+  const soldCount = quotes.filter((q) => q.status === 'SOLD').length;
+  const pendingCount = quotes.filter((q) => q.status === 'PENDING').length;
+  const projectsByStatus: Record<string, number> = {};
+  projects.forEach((p) => { projectsByStatus[p.status] = p._count.id; });
+
   return (
-    <main className="p-8">
-      <header style={{ marginBottom: "2.5rem" }}>
-
-        <Link href="/" style={{ display: "flex", alignItems: "center", gap: "0.5rem", color: "var(--text-secondary)", textDecoration: "none", fontSize: "0.875rem", marginBottom: "1rem", fontWeight: 500 }}>
-          <ArrowLeft size={16} />
-          Volver al Panel
-        </Link>
-        <h1 className="heading-xl">Reportes de Rendimiento</h1>
-        <p style={{ color: "var(--text-secondary)", fontSize: "0.875rem" }}>
-          Métricas avanzadas y salud financiera de <strong>Refaccionaria Coyote</strong>.
-        </p>
-      </header>
-
-      {/* Primary Metrics Grid */}
-      <div className="grid-stats" style={{ marginBottom: "2.5rem" }}>
-        <ReportMetricCard 
-          title="Rendimiento de Ventas" 
-          value={`$${revenue.toLocaleString()}`} 
-          icon={<TrendingUp size={20} />} 
-          color="green"
-          percentage={100}
-        />
-        <ReportMetricCard 
-          title="Margen de Utilidad" 
-          value={`${marginPct}%`} 
-          icon={<BarChart3 size={20} />} 
-          color="blue"
-          percentage={marginPct}
-        />
-        <ReportMetricCard 
-          title="Utilidad por Artículo" 
-          value={`$${avgProfitPerItem.toLocaleString()}`} 
-          icon={<DollarSign size={20} />} 
-          color="indigo"
-          percentage={75}
-        />
-        <ReportMetricCard 
-          title="Proyectos Completos" 
-          value={projectCount} 
-          icon={<CheckCircle size={20} />} 
-          color="orange"
-          percentage={90}
-        />
+    <div className="p-6">
+      <div className="mb-6">
+        <h1 className="text-2xl font-bold text-gray-900">Reportes</h1>
+        <p className="text-sm text-gray-500">Visión general del negocio</p>
       </div>
 
-      {/* Analysis Grid */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(400px, 1fr))", gap: "2rem" }}>
-        {/* Health Chart Box */}
-        <div className="card">
-          <h2 className="heading-lg" style={{ marginBottom: "1.5rem", fontSize: "1.125rem" }}>Salud del Inventario</h2>
-          <div style={{ display: "flex", flexDirection: "column", gap: "1.5rem" }}>
-            <ProgressStat 
-              label="Artículos Disponibles" 
-              value={itemCount} 
-              total={itemCount + 5} 
-              color="#10b981" 
-              icon={<Package size={16} />}
-            />
-            <ProgressStat 
-              label="Eficiencia de Ventas" 
-              value={marginPct} 
-              total={100} 
-              color="#6366f1" 
-              icon={<TrendingUp size={16} />}
-            />
-            <ProgressStat 
-              label="Retorno de Inversión" 
-              value={85} 
-              total={100} 
-              color="#f59e0b" 
-              icon={<DollarSign size={16} />}
-            />
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
+        {[
+          { label: 'Ingresos (ventas)', value: formatCurrency(totalRevenue), icon: TrendingUp, color: 'text-green-600' },
+          { label: 'Cotizaciones pendientes', value: formatCurrency(pendingRevenue), icon: FileText, color: 'text-amber-600' },
+          { label: 'Partes en catálogo', value: partCount, icon: Package, color: 'text-blue-600' },
+          { label: 'Clientes', value: customerCount, icon: Users, color: 'text-purple-600' },
+        ].map((s) => (
+          <div key={s.label} className="card p-4">
+            <s.icon className={`h-5 w-5 ${s.color} mb-2`} />
+            <p className="text-xl font-bold text-gray-900">{s.value}</p>
+            <p className="text-xs text-gray-500">{s.label}</p>
           </div>
-        </div>
+        ))}
+      </div>
 
-        {/* Financial Summary */}
-        <div className="card" style={{ background: "#111827", color: "white" }}>
-          <h2 className="heading-lg" style={{ marginBottom: "1.5rem", fontSize: "1.125rem", color: "white" }}>Resumen Financiero</h2>
-          <div style={{ display: "flex", flexDirection: "column", gap: "1.25rem" }}>
-            <div style={{ display: "flex", justifyContent: "space-between", borderBottom: "1px solid rgba(255,255,255,0.1)", paddingBottom: "0.75rem" }}>
-              <span style={{ color: "rgba(255,255,255,0.6)", fontSize: "0.875rem" }}>Ingresos Brutos</span>
-              <span style={{ fontWeight: 700 }}>${revenue.toLocaleString()}</span>
-            </div>
-            <div style={{ display: "flex", justifyContent: "space-between", borderBottom: "1px solid rgba(255,255,255,0.1)", paddingBottom: "0.75rem" }}>
-              <span style={{ color: "rgba(255,255,255,0.6)", fontSize: "0.875rem" }}>Costos Operativos</span>
-              <span style={{ fontWeight: 700, color: "#f87171" }}>-${costs.toLocaleString()}</span>
-            </div>
-            <div style={{ display: "flex", justifyContent: "space-between", paddingTop: "0.5rem" }}>
-              <span style={{ fontWeight: 600 }}>Utilidad Neta</span>
-              <span style={{ fontSize: "1.5rem", fontWeight: 800, color: "#4ade80" }}>${totalValue.toLocaleString()}</span>
-            </div>
-            
-            <div style={{ marginTop: "1rem", padding: "1rem", background: "rgba(255,255,255,0.05)", borderRadius: "8px" }}>
-              <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", color: "#4ade80", fontSize: "0.875rem", fontWeight: 600 }}>
-                <TrendingUp size={16} />
-                <span>Rendimiento Óptimo</span>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="card p-5">
+          <h2 className="text-base font-semibold text-gray-900 mb-4 flex items-center gap-2">
+            <FileText className="h-4 w-4" /> Cotizaciones
+          </h2>
+          <div className="space-y-3">
+            {[
+              { label: 'Vendidas',   count: soldCount,    value: totalRevenue,   cls: 'bg-green-100 text-green-700' },
+              { label: 'Pendientes', count: pendingCount, value: pendingRevenue, cls: 'bg-amber-100 text-amber-700' },
+              { label: 'Canceladas', count: quotes.filter((q) => q.status === 'CANCELLED').length, value: null, cls: 'bg-red-100 text-red-700' },
+            ].map((row) => (
+              <div key={row.label} className="flex items-center justify-between rounded-lg p-3 bg-gray-50">
+                <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${row.cls}`}>{row.label}</span>
+                <div className="text-right">
+                  <span className="text-sm font-semibold text-gray-900">{row.count} cot.</span>
+                  {row.value !== null && <span className="ml-3 text-sm text-gray-500">{formatCurrency(row.value)}</span>}
+                </div>
               </div>
-              <p style={{ fontSize: "0.75rem", color: "rgba(255,255,255,0.5)", marginTop: "0.25rem" }}>
-                El margen de utilidad actual del {marginPct}% supera el promedio del sector.
-              </p>
-            </div>
+            ))}
           </div>
         </div>
-      </div>
-    </main>
-  );
-}
 
-function ReportMetricCard({ title, value, icon, color, percentage }: any) {
-  const colors: any = {
-    green: "#10b981",
-    blue: "#3b82f6",
-    indigo: "#6366f1",
-    orange: "#f59e0b"
-  };
-  const themeColor = colors[color] || colors.blue;
-
-  return (
-    <div className="card" style={{ padding: "1.25rem" }}>
-      <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", marginBottom: "1rem" }}>
-        <div style={{ color: themeColor, background: `${themeColor}15`, padding: "8px", borderRadius: "8px" }}>
-          {icon}
+        <div className="card p-5">
+          <h2 className="text-base font-semibold text-gray-900 mb-4 flex items-center gap-2">
+            <Wrench className="h-4 w-4" /> Proyectos de Mantenimiento
+          </h2>
+          <div className="space-y-3">
+            {[
+              { key: 'OPEN',          label: 'Abiertos',    cls: 'bg-blue-100 text-blue-700' },
+              { key: 'IN_PROGRESS',   label: 'En proceso',  cls: 'bg-amber-100 text-amber-700' },
+              { key: 'WAITING_PARTS', label: 'Esp. partes', cls: 'bg-orange-100 text-orange-700' },
+              { key: 'COMPLETED',     label: 'Completados', cls: 'bg-green-100 text-green-700' },
+              { key: 'CANCELLED',     label: 'Cancelados',  cls: 'bg-red-100 text-red-700' },
+            ].map((row) => (
+              <div key={row.key} className="flex items-center justify-between rounded-lg p-3 bg-gray-50">
+                <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${row.cls}`}>{row.label}</span>
+                <span className="text-sm font-semibold text-gray-900">{projectsByStatus[row.key] ?? 0}</span>
+              </div>
+            ))}
+          </div>
         </div>
-        <span style={{ fontSize: "0.75rem", fontWeight: 600, color: "var(--text-secondary)", textTransform: "uppercase", letterSpacing: "0.05em" }}>{title}</span>
-      </div>
-      <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between" }}>
-        <span style={{ fontSize: "1.5rem", fontWeight: 800 }}>{value}</span>
-        <span style={{ fontSize: "0.75rem", fontWeight: 700, color: themeColor }}>{percentage}%</span>
-      </div>
-      <div className="progress-container" style={{ height: "4px", marginTop: "0.75rem" }}>
-        <div className="progress-bar" style={{ width: `${percentage}%`, backgroundColor: themeColor }} />
+
+        <div className="card lg:col-span-2">
+          <div className="card-header flex items-center gap-2">
+            <AlertTriangle className="h-4 w-4 text-amber-500" />
+            <h2 className="text-base font-semibold text-gray-900">Partes con stock bajo</h2>
+          </div>
+          {lowStockParts.length === 0 ? (
+            <p className="px-6 py-8 text-center text-sm text-gray-400">Sin alertas de stock</p>
+          ) : (
+            <table className="min-w-full divide-y divide-gray-100">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="table-header px-4 py-2">Parte</th>
+                  <th className="table-header px-3 py-2">Categoría</th>
+                  <th className="table-header px-3 py-2">Ubicación</th>
+                  <th className="table-header px-3 py-2 text-right">Stock</th>
+                  <th className="table-header px-3 py-2 text-right">Mínimo</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-50">
+                {(lowStockParts as any[]).map((p) => (
+                  <tr key={p.id} className="hover:bg-gray-50">
+                    <td className="px-4 py-2 text-sm font-medium text-gray-900">{p.name}</td>
+                    <td className="px-3 py-2 text-sm text-gray-500">{p.category?.name ?? '—'}</td>
+                    <td className="px-3 py-2 text-sm text-gray-500">{p.location?.name ?? '—'}</td>
+                    <td className="px-3 py-2 text-right text-sm font-semibold text-red-600">{p.quantity}</td>
+                    <td className="px-3 py-2 text-right text-sm text-gray-500">{p.minStock}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
       </div>
     </div>
   );
 }
 
-function ProgressStat({ label, value, total, color, icon }: any) {
-  const pct = Math.round((value / total) * 100);
-  return (
-    <div>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.5rem" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", fontSize: "0.875rem", fontWeight: 500, color: "var(--text-secondary)" }}>
-          {icon}
-          {label}
-        </div>
-        <span style={{ fontSize: "0.875rem", fontWeight: 700 }}>{value}</span>
-      </div>
-      <div className="progress-container">
-        <div className="progress-bar" style={{ width: `${pct}%`, backgroundColor: color }} />
-      </div>
-    </div>
-  );
-}

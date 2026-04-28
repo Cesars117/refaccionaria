@@ -293,7 +293,7 @@ export function BarcodeScanner({ onCodeScanned, onClose }: BarcodeScannerProps) 
         setError(t('scanner.cameraError'));
       }
     }
-  }, [onCodeScanned, checkCameraPermissions, isMobile, waitForVideoElement]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [onCodeScanned, checkCameraPermissions, isMobile, waitForVideoElement]);
 
   useEffect(() => {
     // Delay initialization briefly to let the DOM fully render.
@@ -308,7 +308,7 @@ export function BarcodeScanner({ onCodeScanned, onClose }: BarcodeScannerProps) 
       clearTimeout(timeoutId);
       stopScanner();
     };
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, []);
 
   return (
     <div style={{

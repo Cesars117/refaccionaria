@@ -49,7 +49,6 @@ export function SiteKitMatchPanel({ siteKitDbId, item, onClose, onMatched }: Sit
 
   useEffect(() => {
     loadWipItems()
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [item.siteKitSku])
 
   const loadWipItems = async () => {

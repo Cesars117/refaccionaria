@@ -1,685 +1,619 @@
-'use server'
+﻿'use server'
 
 import db from '@/lib/db'
-import { createAuditLog } from '@/lib/audit'
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
-import { getServerSession } from 'next-auth/next'
-import { authOptions } from '@/lib/auth'
-import fs from 'fs'
-import path from 'path'
 
-// --- Dashboard Stats ---
-export async function getDashboardStats() {
-    const [itemCount, clientCount, projectCount, items, totalRevenue, totalExpenses] = await Promise.all([
-        db.item.count(),
-        db.client.count(),
-        db.project.count({ where: { status: 'ACTIVE' } }),
-        db.item.findMany({
-            take: 5,
-            orderBy: { createdAt: 'desc' },
-            include: { category: true, location: true }
-        }),
-        db.invoice.aggregate({
-            _sum: { total: true },
-            where: { status: 'PAID' }
-        }),
-        db.expense.aggregate({
-            _sum: { amount: true }
-        })
-    ])
-
-    const revenue = totalRevenue._sum.total || 0
-    const costs = totalExpenses._sum.amount || 0
-    const profit = revenue - costs
-
-    return {
-        itemCount,
-        clientCount,
-        projectCount,
-        totalValue: profit,
-        revenue,
-        costs,
-        recentItems: items
-    }
-}
-
-// --- Items ---
-export async function getItems(query?: string) {
-    return db.item.findMany({
-        where: {
-            OR: query ? [
-                { name: { contains: query } },
-                { description: { contains: query } },
-                { sku: { contains: query } },
-                { barcode: { contains: query } },
-                { category: { name: { contains: query } } },
-                { location: { name: { contains: query } } }
-            ] : undefined
-        },
-        include: { category: true, location: true, serialNumbers: true },
-        orderBy: { createdAt: 'desc' }
+// ─── SEED DATA ────────────────────────────────────────────
+export async function seedInitialData() {
+  const catCount = await db.category.count()
+  if (catCount === 0) {
+    await db.category.createMany({
+      data: [
+        { name: 'Frenos', description: 'Balatas, discos, tambores, cilindros de rueda' },
+        { name: 'Motor', description: 'Filtros, empaques, bujias, bandas, cadenas' },
+        { name: 'Suspension', description: 'Amortiguadores, rotulas, terminales, hojas de resorte' },
+        { name: 'Transmision', description: 'Clutch, sincros, flechas, juntas homoineticas' },
+        { name: 'Electrico', description: 'Fusibles, focos, alternadores, baterias, arrancadores' },
+        { name: 'Carroceria', description: 'Faros, espejos, manijas, molduras, parabrisas' },
+        { name: 'Enfriamiento', description: 'Radiadores, mangueras, termostatos, tapones' },
+        { name: 'Direccion', description: 'Cremalleras, bombas hidraulicas, mangueras de direccion' },
+        { name: 'Lubricantes', description: 'Aceites de motor, transmision, diferencial, liquido de frenos' },
+        { name: 'Filtros', description: 'Filtros de aceite, aire, combustible, habitaculo' },
+      ],
+      skipDuplicates: true,
     })
-}
-
-export async function findItemByBarcode(barcode: string) {
-    return db.item.findUnique({
-        where: { barcode },
-        include: { category: true, location: true, serialNumbers: true }
+  }
+  const locCount = await db.location.count()
+  if (locCount === 0) {
+    await db.location.createMany({
+      data: [
+        { name: 'Estante A-1' },
+        { name: 'Estante A-2' },
+        { name: 'Estante B-1' },
+        { name: 'Estante B-2' },
+        { name: 'Estante C-1' },
+        { name: 'Almacen General' },
+        { name: 'Bodega 2' },
+        { name: 'Vitrina' },
+      ],
+      skipDuplicates: true,
     })
+  }
 }
 
-export async function updateItemBarcode(itemId: number, barcode: string) {
-    await db.item.update({
-        where: { id: itemId },
-        data: { barcode }
-    })
-    revalidatePath('/')
-    revalidatePath(`/items/${itemId}`)
+// ─── PARTS ────────────────────────────────────────────────
+export async function getParts(query?: string, filterLow?: boolean) {
+  return db.part.findMany({
+    where: {
+      ...(query ? {
+        OR: [
+          { name: { contains: query, mode: 'insensitive' } },
+          { sku: { contains: query, mode: 'insensitive' } },
+          { oemNumber: { contains: query, mode: 'insensitive' } },
+          { barcode: { contains: query, mode: 'insensitive' } },
+          { brand: { contains: query, mode: 'insensitive' } },
+          { category: { name: { contains: query, mode: 'insensitive' } } },
+        ],
+      } : {}),
+    },
+    include: { category: true, location: true },
+    orderBy: { name: 'asc' },
+  })
 }
 
-export async function generateUniqueBarcode() {
-    let barcode = ''
-    let exists = true
-    
-    while (exists) {
-        barcode = `BC-${Date.now()}-${Math.random().toString(36).substr(2, 9).toUpperCase()}`
-        const check = await db.item.findUnique({
-            where: { barcode }
-        })
-        exists = !!check
-    }
-    
-    return barcode
+export async function getPartById(id: number) {
+  return db.part.findUnique({
+    where: { id },
+    include: {
+      category: true,
+      location: true,
+      fitment: { include: { vehicleModel: true } },
+      supplierParts: { include: { supplier: true } },
+    },
+  })
 }
 
+export async function createPart(formData: FormData) {
+  const name = formData.get('name') as string
+  const categoryId = parseInt(formData.get('categoryId') as string)
+  const locationId = parseInt(formData.get('locationId') as string)
+  const quantity = parseInt(formData.get('quantity') as string || '0')
+  const minStock = parseInt(formData.get('minStock') as string || '0')
+  const price = parseFloat(formData.get('price') as string || '0')
+  const priceFleet = formData.get('priceFleet') ? parseFloat(formData.get('priceFleet') as string) : null
+  const cost = parseFloat(formData.get('cost') as string || '0')
 
-export async function createItem(formData: FormData) {
-    const name = formData.get('name') as string
-    const categoryId = parseInt(formData.get('categoryId') as string)
-    const locationId = parseInt(formData.get('locationId') as string)
-    const quantity = parseInt(formData.get('quantity') as string)
-    const status = formData.get('status') as string
-    const costPrice = parseFloat(formData.get('costPrice') as string || '0')
-    const salePrice = parseFloat(formData.get('salePrice') as string || '0')
-    let barcode = formData.get('barcode') as string | null
-    
-    if (barcode) {
-        const existing = await db.item.findUnique({ where: { barcode } })
-        if (existing) throw new Error(`Barcode "${barcode}" already exists.`)
-    }
-
-    const item = await db.item.create({
-        data: {
-            name,
-            categoryId,
-            locationId,
-            quantity,
-            status,
-            costPrice,
-            salePrice,
-            barcode: barcode || null
-        }
-    })
-
-    const session = null
-
-    await createAuditLog(db, session, {
-        action: 'CREATED',
-        entityType: 'ITEM',
-        entityId: item.id,
-        entityLabel: name,
-    })
-
-    revalidatePath('/')
+  await db.part.create({
+    data: {
+      name,
+      categoryId,
+      locationId,
+      quantity,
+      minStock,
+      price,
+      priceFleet,
+      cost,
+      brand: (formData.get('brand') as string) || null,
+      sku: (formData.get('sku') as string) || null,
+      barcode: (formData.get('barcode') as string) || null,
+      oemNumber: (formData.get('oemNumber') as string) || null,
+      description: (formData.get('description') as string) || null,
+    },
+  })
+  revalidatePath('/partes')
+  redirect('/partes')
 }
 
-export async function getItemById(id: number) {
-    return db.item.findUnique({
-        where: { id },
-        include: { category: true, location: true, serialNumbers: true }
-    })
+export async function updatePart(formData: FormData) {
+  const id = parseInt(formData.get('id') as string)
+  const quantity = parseInt(formData.get('quantity') as string || '0')
+  const minStock = parseInt(formData.get('minStock') as string || '0')
+  const price = parseFloat(formData.get('price') as string || '0')
+  const priceFleet = formData.get('priceFleet') ? parseFloat(formData.get('priceFleet') as string) : null
+  const cost = parseFloat(formData.get('cost') as string || '0')
+
+  await db.part.update({
+    where: { id },
+    data: {
+      name: formData.get('name') as string,
+      categoryId: parseInt(formData.get('categoryId') as string),
+      locationId: parseInt(formData.get('locationId') as string),
+      quantity, minStock, price, priceFleet, cost,
+      brand: (formData.get('brand') as string) || null,
+      sku: (formData.get('sku') as string) || null,
+      barcode: (formData.get('barcode') as string) || null,
+      oemNumber: (formData.get('oemNumber') as string) || null,
+      description: (formData.get('description') as string) || null,
+    },
+  })
+  revalidatePath('/partes')
+  revalidatePath(`/partes/${id}`)
+  redirect('/partes')
 }
 
-export async function getItemSerialNumbers(itemId: number) {
-    return db.serialNumber.findMany({
-        where: { itemId },
-        select: { id: true, serialNumber: true }
-    })
+export async function deletePart(formData: FormData) {
+  const id = parseInt(formData.get('id') as string)
+  await db.part.delete({ where: { id } })
+  revalidatePath('/partes')
+  redirect('/partes')
 }
 
-
-export async function updateItem(formData: FormData) {
-    const id = parseInt(formData.get('id') as string)
-    const name = formData.get('name') as string
-    const categoryId = parseInt(formData.get('categoryId') as string)
-    const locationId = parseInt(formData.get('locationId') as string)
-    const quantity = parseInt(formData.get('quantity') as string)
-    const status = formData.get('status') as string
-    const costPrice = parseFloat(formData.get('costPrice') as string || '0')
-    const salePrice = parseFloat(formData.get('salePrice') as string || '0')
-
-    await db.item.update({
-        where: { id },
-        data: { name, categoryId, locationId, quantity, status, costPrice, salePrice }
-    })
-
-    revalidatePath('/')
-    revalidatePath(`/items/${id}`)
-    redirect('/')
-}
-
-export async function deleteItem(formData: FormData) {
-    const id = parseInt(formData.get('id') as string)
-    await db.item.delete({ where: { id } })
-    revalidatePath('/')
-}
-
-// --- Clients ---
-export async function getClients() {
-    return db.client.findMany({
-        orderBy: { name: 'asc' },
-        include: { _count: { select: { vehicles: true, projects: true } } }
-    })
-}
-
-export async function getCategoryById(id: number) {
-    return db.category.findUnique({
-        where: { id },
-        include: { _count: { select: { items: true } } }
-    })
-}
-
-export async function updateCategory(formData: FormData) {
-    const id = parseInt(formData.get('id') as string)
-    const name = formData.get('name') as string
-    const description = formData.get('description') as string
-
-    await db.category.update({
-        where: { id },
-        data: {
-            name,
-            description: description || null
-        }
-    })
-
-    revalidatePath('/categories')
-    redirect('/categories')
-}
-
-export async function deleteCategory(formData: FormData) {
-    const id = parseInt(formData.get('id') as string)
-    
-    const category = await db.category.findUnique({
-        where: { id },
-        include: { _count: { select: { items: true } } }
-    })
-    
-    if (category?._count?.items && category._count.items > 0) {
-        throw new Error(`Cannot delete category because it has items.`)
-    }
-
-    await db.category.delete({ where: { id } })
-    revalidatePath('/categories')
-}
-
-export async function getLocationById(id: number) {
-    return db.location.findUnique({
-        where: { id },
-        include: { _count: { select: { items: true } } }
-    })
-}
-
-export async function updateLocation(formData: FormData) {
-    const id = parseInt(formData.get('id') as string)
-    const name = formData.get('name') as string
-    const type = formData.get('type') as string
-    const description = formData.get('description') as string
-
-    await db.location.update({
-        where: { id },
-        data: {
-            name,
-            type,
-            description: description || null
-        }
-    })
-
-    revalidatePath('/locations')
-    redirect('/locations')
-}
-
-export async function deleteLocation(formData: FormData) {
-    const id = parseInt(formData.get('id') as string)
-    
-    const location = await db.location.findUnique({
-        where: { id },
-        include: { _count: { select: { items: true } } }
-    })
-    
-    if (location?._count?.items && location._count.items > 0) {
-        throw new Error(`Cannot delete location because it has items.`)
-    }
-
-    await db.location.delete({ where: { id } })
-    revalidatePath('/locations')
-}
-
-export async function createClient(formData: FormData) {
-    const name = formData.get('name') as string
-    const phone = formData.get('phone') as string | null
-    const email = formData.get('email') as string | null
-    const address = formData.get('address') as string | null
-
-    await db.client.create({
-        data: { name, phone, email, address }
-    })
-    revalidatePath('/clients')
-}
-
-export async function getClientById(id: number) {
-    return db.client.findUnique({
-        where: { id },
-        include: { vehicles: true, projects: true }
-    })
-}
-
-export async function updateClient(formData: FormData) {
-    const id = parseInt(formData.get('id') as string)
-    const name = formData.get('name') as string
-    const phone = formData.get('phone') as string | null
-    const email = formData.get('email') as string | null
-    const address = formData.get('address') as string | null
-
-    await db.client.update({
-        where: { id },
-        data: { name, phone, email, address }
-    })
-    revalidatePath('/clients')
-    revalidatePath(`/clients/${id}`)
-}
-
-export async function createVehicle(formData: FormData) {
-    const clientId = parseInt(formData.get('clientId') as string)
-    const model = formData.get('model') as string
-    const plate = formData.get('plate') as string | null
-
-    await db.vehicle.create({
-        data: { model, plate, clientId }
-    })
-    revalidatePath(`/clients/${clientId}`)
-}
-
-// --- Projects ---
-export async function getProjects() {
-    return db.project.findMany({
-        orderBy: { updatedAt: 'desc' },
-        include: { 
-            client: true, 
-            vehicle: true,
-            _count: { select: { serviceOrders: true } }
-        }
-    })
-}
-
-export async function createProject(formData: FormData) {
-    const name = formData.get('name') as string
-    const clientId = parseInt(formData.get('clientId') as string)
-    const vehicleId = formData.get('vehicleId') ? parseInt(formData.get('vehicleId') as string) : null
-    const status = formData.get('status') as string || 'ACTIVE'
-
-    await db.project.create({
-        data: { name, clientId, vehicleId, status }
-    })
-    revalidatePath('/projects')
-    redirect('/projects')
-}
-
-export async function deleteProject(formData: FormData) {
-    const id = parseInt(formData.get('id') as string)
-    await db.project.delete({ where: { id } })
-    revalidatePath('/projects')
-}
-
-export async function getProjectById(id: number) {
-    return db.project.findUnique({
-        where: { id },
-        include: {
-            client: true,
-            vehicle: true,
-            serviceOrders: {
-                include: {
-                    itemsUsed: {
-                        include: { item: true }
-                    }
-                }
-            }
-        }
-    })
-}
-
-
-
-// --- Categories & Locations ---
+// ─── CATEGORIES ────────────────────────────────────────────
 export async function getCategories() {
-    return db.category.findMany({ orderBy: { name: 'asc' } })
-}
-
-export async function getLocations() {
-    return db.location.findMany({ orderBy: { name: 'asc' } })
+  return db.category.findMany({ orderBy: { name: 'asc' } })
 }
 
 export async function createCategory(formData: FormData) {
-    const name = formData.get('name') as string
-    await db.category.create({ data: { name } })
-    revalidatePath('/categories')
+  await db.category.create({
+    data: {
+      name: formData.get('name') as string,
+      description: (formData.get('description') as string) || null,
+    },
+  })
+  revalidatePath('/categorias')
+}
+
+export async function updateCategory(formData: FormData) {
+  const id = parseInt(formData.get('id') as string)
+  await db.category.update({
+    where: { id },
+    data: {
+      name: formData.get('name') as string,
+      description: (formData.get('description') as string) || null,
+    },
+  })
+  revalidatePath('/categorias')
+}
+
+export async function deleteCategory(formData: FormData) {
+  const id = parseInt(formData.get('id') as string)
+  const cat = await db.category.findUnique({ where: { id }, include: { _count: { select: { parts: true } } } })
+  if (cat?._count?.parts && cat._count.parts > 0) {
+    throw new Error('No se puede eliminar: la categoria tiene partes asignadas.')
+  }
+  await db.category.delete({ where: { id } })
+  revalidatePath('/categorias')
+}
+
+// ─── LOCATIONS ────────────────────────────────────────────
+export async function getLocations() {
+  return db.location.findMany({ orderBy: { name: 'asc' } })
 }
 
 export async function createLocation(formData: FormData) {
-    const name = formData.get('name') as string
-    await db.location.create({ data: { name } })
-    revalidatePath('/locations')
+  await db.location.create({ data: { name: formData.get('name') as string } })
+  revalidatePath('/ubicaciones')
 }
 
-// --- Finance ---
-export async function getInvoices() {
-    return db.invoice.findMany({ 
-        orderBy: { createdAt: 'desc' },
-        include: { client: true, project: true } 
-    })
+export async function updateLocation(formData: FormData) {
+  const id = parseInt(formData.get('id') as string)
+  await db.location.update({ where: { id }, data: { name: formData.get('name') as string } })
+  revalidatePath('/ubicaciones')
 }
 
-export async function createServiceOrder(formData: FormData) {
-    const projectId = parseInt(formData.get('projectId') as string)
-    const type = formData.get('type') as string || 'GENERAL'
-    const laborCost = parseFloat(formData.get('laborCost') as string || '0')
-    const itemsJson = formData.get('itemsUsed') as string // JSON string of [{itemId, quantity}]
-    
-    const project = await db.project.findUnique({
-        where: { id: projectId },
-        include: { client: true, vehicle: true }
+export async function deleteLocation(formData: FormData) {
+  const id = parseInt(formData.get('id') as string)
+  const loc = await db.location.findUnique({ where: { id }, include: { _count: { select: { parts: true } } } })
+  if (loc?._count?.parts && loc._count.parts > 0) {
+    throw new Error('No se puede eliminar: la ubicacion tiene partes asignadas.')
+  }
+  await db.location.delete({ where: { id } })
+  revalidatePath('/ubicaciones')
+}
+
+// ─── CUSTOMERS ────────────────────────────────────────────
+export async function getCustomers(type?: string) {
+  return db.customer.findMany({
+    where: type ? { type } : undefined,
+    orderBy: { name: 'asc' },
+    include: {
+      _count: { select: { quotes: true } },
+      fleet: { include: { _count: { select: { units: true, projects: true } } } },
+    },
+  })
+}
+
+export async function getCustomerById(id: string) {
+  return db.customer.findUnique({
+    where: { id },
+    include: {
+      quotes: { orderBy: { createdAt: 'desc' }, take: 10 },
+      fleet: {
+        include: {
+          units: { orderBy: { make: 'asc' } },
+          projects: {
+            orderBy: { createdAt: 'desc' },
+            take: 5,
+            include: { fleetUnit: true },
+          },
+        },
+      },
+    },
+  })
+}
+
+export async function createCustomer(formData: FormData) {
+  const type = formData.get('type') as string || 'RETAIL'
+  const fleetName = formData.get('fleetName') as string | null
+
+  const customer = await db.customer.create({
+    data: {
+      name: formData.get('name') as string,
+      phone: formData.get('phone') as string,
+      email: (formData.get('email') as string) || null,
+      address: (formData.get('address') as string) || null,
+      rfc: (formData.get('rfc') as string) || null,
+      notes: (formData.get('notes') as string) || null,
+      type,
+    },
+  })
+
+  // Si es cliente de flota, crear la flota automáticamente
+  if (type === 'FLEET') {
+    await db.fleet.create({
+      data: {
+        name: fleetName || `Flota de ${formData.get('name')}`,
+        customerId: customer.id,
+      },
     })
-    if (!project) throw new Error('Project not found')
+  }
 
-    const itemsUsed: { itemId: number; quantity: number }[] = JSON.parse(itemsJson)
-    const orderNumber = `SO-${Date.now()}`
+  revalidatePath('/clientes')
+  redirect('/clientes')
+}
 
-    return await db.$transaction(async (tx) => {
-        let totalAmount = laborCost
+export async function updateCustomer(formData: FormData) {
+  const id = formData.get('id') as string
+  await db.customer.update({
+    where: { id },
+    data: {
+      name: formData.get('name') as string,
+      phone: formData.get('phone') as string,
+      email: (formData.get('email') as string) || null,
+      address: (formData.get('address') as string) || null,
+      rfc: (formData.get('rfc') as string) || null,
+      notes: (formData.get('notes') as string) || null,
+    },
+  })
+  revalidatePath('/clientes')
+  revalidatePath(`/clientes/${id}`)
+  redirect(`/clientes/${id}`)
+}
 
-        // 1. Create Service Order
-        const serviceOrder = await tx.serviceOrder.create({
-            data: {
-                orderNumber,
-                type,
-                clientId: project.clientId,
-                vehicleId: project.vehicleId,
-                projectId: project.id,
-                laborCost,
-                status: 'COMPLETED'
-            }
-        })
+export async function deleteCustomer(formData: FormData) {
+  const id = formData.get('id') as string
+  await db.customer.delete({ where: { id } })
+  revalidatePath('/clientes')
+  redirect('/clientes')
+}
 
-        // 2. Process Items
-        for (const itemUsage of itemsUsed) {
-            const item = await tx.item.findUnique({ where: { id: itemUsage.itemId } })
-            if (!item || item.quantity < itemUsage.quantity) {
-                throw new Error(`Insufficient stock for item: ${item?.name || itemUsage.itemId}`)
-            }
+// ─── FLEET UNITS ──────────────────────────────────────────
+export async function createFleetUnit(formData: FormData) {
+  const fleetId = formData.get('fleetId') as string
+  await db.fleetUnit.create({
+    data: {
+      fleetId,
+      year: parseInt(formData.get('year') as string),
+      make: formData.get('make') as string,
+      model: formData.get('model') as string,
+      trim: (formData.get('trim') as string) || null,
+      color: (formData.get('color') as string) || null,
+      plate: (formData.get('plate') as string) || null,
+      vin: (formData.get('vin') as string) || null,
+      mileage: formData.get('mileage') ? parseInt(formData.get('mileage') as string) : null,
+      engine: (formData.get('engine') as string) || null,
+      notes: (formData.get('notes') as string) || null,
+    },
+  })
+  // Find the customer of this fleet
+  const fleet = await db.fleet.findUnique({ where: { id: fleetId } })
+  revalidatePath(`/clientes/${fleet?.customerId}`)
+  revalidatePath('/flotas')
+}
 
-            const lineTotal = item.salePrice * itemUsage.quantity
-            totalAmount += lineTotal
+export async function deleteFleetUnit(formData: FormData) {
+  const id = formData.get('id') as string
+  const unit = await db.fleetUnit.findUnique({ where: { id }, include: { fleet: true } })
+  await db.fleetUnit.delete({ where: { id } })
+  revalidatePath(`/clientes/${unit?.fleet?.customerId}`)
+  revalidatePath('/flotas')
+}
 
-            // Create Order Item
-            await tx.serviceOrderItem.create({
-                data: {
-                    serviceOrderId: serviceOrder.id,
-                    itemId: item.id,
-                    quantity: itemUsage.quantity,
-                    unitPrice: item.salePrice,
-                    costPrice: item.costPrice
-                }
-            })
+// ─── MAINTENANCE PROJECTS ─────────────────────────────────
+function genProjectNumber(): string {
+  const year = new Date().getFullYear()
+  const rand = Math.floor(Math.random() * 9000) + 1000
+  return `PROY-${year}-${rand}`
+}
 
-            // Decrement Inventory
-            await tx.item.update({
-                where: { id: item.id },
-                data: { quantity: { decrement: itemUsage.quantity } }
-            })
+export async function getProjects(status?: string) {
+  return db.maintenanceProject.findMany({
+    where: status ? { status } : undefined,
+    orderBy: { createdAt: 'desc' },
+    include: {
+      fleet: { include: { customer: true } },
+      fleetUnit: true,
+      _count: { select: { parts: true } },
+    },
+  })
+}
 
-            // Audit Log
-            await createAuditLog(tx, null, {
-                action: 'QTY_CHANGED',
-                entityType: 'ITEM',
-                entityId: item.id,
-                entityLabel: item.name,
-                fieldChanged: 'quantity',
-                oldValue: String(item.quantity),
-                newValue: String(item.quantity - itemUsage.quantity),
-                metadata: { reason: 'Service Order', orderNumber }
-            })
+export async function getProjectById(id: string) {
+  return db.maintenanceProject.findUnique({
+    where: { id },
+    include: {
+      fleet: { include: { customer: true } },
+      fleetUnit: true,
+      parts: {
+        include: { part: { include: { category: true, location: true } } },
+      },
+    },
+  })
+}
+
+export async function createProject(formData: FormData) {
+  const fleetId = formData.get('fleetId') as string
+  const fleetUnitId = formData.get('fleetUnitId') as string
+
+  let projectNumber = genProjectNumber()
+  let existing = await db.maintenanceProject.findUnique({ where: { projectNumber } })
+  while (existing) {
+    projectNumber = genProjectNumber()
+    existing = await db.maintenanceProject.findUnique({ where: { projectNumber } })
+  }
+
+  const project = await db.maintenanceProject.create({
+    data: {
+      projectNumber,
+      fleetId,
+      fleetUnitId,
+      name: formData.get('name') as string,
+      description: (formData.get('description') as string) || null,
+      priority: (formData.get('priority') as string) || 'NORMAL',
+      mileageAtService: formData.get('mileageAtService') ? parseInt(formData.get('mileageAtService') as string) : null,
+      status: 'OPEN',
+    },
+  })
+  revalidatePath('/proyectos')
+  redirect(`/proyectos/${project.id}`)
+}
+
+export async function updateProjectStatus(formData: FormData) {
+  const id = formData.get('id') as string
+  const status = formData.get('status') as string
+  const data: Record<string, unknown> = { status }
+  if (status === 'COMPLETED') data.completedDate = new Date()
+  if (status === 'IN_PROGRESS') data.startDate = new Date()
+  await db.maintenanceProject.update({ where: { id }, data })
+  revalidatePath('/proyectos')
+  revalidatePath(`/proyectos/${id}`)
+}
+
+export async function deleteProject(formData: FormData) {
+  const id = formData.get('id') as string
+  await db.maintenanceProject.delete({ where: { id } })
+  revalidatePath('/proyectos')
+  redirect('/proyectos')
+}
+
+export async function addProjectPart(formData: FormData) {
+  const projectId = formData.get('projectId') as string
+  const partId = parseInt(formData.get('partId') as string)
+  const quantity = parseInt(formData.get('quantity') as string || '1')
+  const unitPrice = parseFloat(formData.get('unitPrice') as string || '0')
+
+  await db.projectPart.create({
+    data: {
+      projectId,
+      partId,
+      quantity,
+      unitPrice,
+      notes: (formData.get('notes') as string) || null,
+    },
+  })
+  revalidatePath(`/proyectos/${projectId}`)
+}
+
+export async function removeProjectPart(formData: FormData) {
+  const id = formData.get('id') as string
+  const pp = await db.projectPart.findUnique({ where: { id } })
+  await db.projectPart.delete({ where: { id } })
+  revalidatePath(`/proyectos/${pp?.projectId}`)
+}
+
+// Marcar proyecto como completado y descontar partes del inventario
+export async function completeProject(formData: FormData) {
+  const id = formData.get('id') as string
+  const project = await db.maintenanceProject.findUnique({
+    where: { id },
+    include: { parts: true },
+  })
+  if (!project) throw new Error('Proyecto no encontrado')
+  if (project.status === 'COMPLETED') throw new Error('El proyecto ya fue completado')
+
+  await db.$transaction(async (tx) => {
+    // Descontar partes del inventario
+    for (const pp of project.parts) {
+      await tx.part.update({
+        where: { id: pp.partId },
+        data: { quantity: { decrement: pp.quantity } },
+      })
+    }
+    await tx.maintenanceProject.update({
+      where: { id },
+      data: { status: 'COMPLETED', completedDate: new Date() },
+    })
+  })
+
+  revalidatePath('/proyectos')
+  revalidatePath(`/proyectos/${id}`)
+}
+
+// ─── QUOTES ───────────────────────────────────────────────
+function genQuoteNumber(): string {
+  const year = new Date().getFullYear()
+  const rand = Math.floor(Math.random() * 9000) + 1000
+  return `COT-${year}-${rand}`
+}
+
+export async function getQuotes(status?: string) {
+  return db.quote.findMany({
+    where: status ? { status } : undefined,
+    orderBy: { createdAt: 'desc' },
+    include: {
+      customer: true,
+      _count: { select: { items: true } },
+    },
+  })
+}
+
+export async function getQuoteById(id: string) {
+  return db.quote.findUnique({
+    where: { id },
+    include: {
+      customer: true,
+      items: { include: { part: { include: { category: true } } } },
+    },
+  })
+}
+
+export async function createQuote(formData: FormData) {
+  const customerId = formData.get('customerId') as string
+
+  let quoteNumber = genQuoteNumber()
+  let existing = await db.quote.findUnique({ where: { quoteNumber } })
+  while (existing) {
+    quoteNumber = genQuoteNumber()
+    existing = await db.quote.findUnique({ where: { quoteNumber } })
+  }
+
+  const quote = await db.quote.create({
+    data: {
+      quoteNumber,
+      customerId,
+      vehicleRef: (formData.get('vehicleRef') as string) || null,
+      notes: (formData.get('notes') as string) || null,
+      status: 'PENDING',
+    },
+  })
+  revalidatePath('/cotizaciones')
+  redirect(`/cotizaciones/${quote.id}`)
+}
+
+export async function updateQuoteStatus(formData: FormData) {
+  const id = formData.get('id') as string
+  const status = formData.get('status') as string
+  await db.quote.update({ where: { id }, data: { status } })
+  revalidatePath('/cotizaciones')
+  revalidatePath(`/cotizaciones/${id}`)
+}
+
+export async function deleteQuote(formData: FormData) {
+  const id = formData.get('id') as string
+  await db.quote.delete({ where: { id } })
+  revalidatePath('/cotizaciones')
+  redirect('/cotizaciones')
+}
+
+export async function addQuoteItem(formData: FormData) {
+  const quoteId = formData.get('quoteId') as string
+  const partId = parseInt(formData.get('partId') as string)
+  const quantity = parseInt(formData.get('quantity') as string || '1')
+  const unitPrice = parseFloat(formData.get('unitPrice') as string || '0')
+  const amount = quantity * unitPrice
+
+  await db.quoteItem.create({
+    data: {
+      quoteId,
+      partId,
+      description: formData.get('description') as string,
+      quantity,
+      unitPrice,
+      amount,
+    },
+  })
+
+  await recalcQuote(quoteId)
+  revalidatePath(`/cotizaciones/${quoteId}`)
+}
+
+export async function removeQuoteItem(formData: FormData) {
+  const id = formData.get('id') as string
+  const item = await db.quoteItem.findUnique({ where: { id } })
+  if (!item) return
+  await db.quoteItem.delete({ where: { id } })
+  await recalcQuote(item.quoteId)
+  revalidatePath(`/cotizaciones/${item.quoteId}`)
+}
+
+async function recalcQuote(quoteId: string) {
+  const items = await db.quoteItem.findMany({ where: { quoteId } })
+  const subtotal = items.reduce((s, i) => s + i.amount, 0)
+  const tax = Math.round(subtotal * 0.16 * 100) / 100
+  const total = subtotal + tax
+  await db.quote.update({ where: { id: quoteId }, data: { subtotal, tax, total } })
+}
+
+// ─── VEHICLE MODELS (fitment catalog) ─────────────────────
+export async function getVehicleModels(query?: string) {
+  return db.vehicleModel.findMany({
+    where: query
+      ? {
+          OR: [
+            { make: { contains: query, mode: 'insensitive' } },
+            { model: { contains: query, mode: 'insensitive' } },
+          ],
         }
-
-        // 3. Update Service Order Total
-        await tx.serviceOrder.update({
-            where: { id: serviceOrder.id },
-            data: { totalAmount }
-        })
-
-        // 4. Create Invoice automatically (Optional, but useful)
-        await tx.invoice.create({
-            data: {
-                invoiceNumber: `INV-${orderNumber}`,
-                clientId: project.clientId,
-                projectId: project.id,
-                total: totalAmount,
-                status: 'PAID'
-            }
-        })
-
-        revalidatePath(`/projects/${projectId}`)
-        return serviceOrder
-    })
+      : undefined,
+    orderBy: [{ make: 'asc' }, { model: 'asc' }, { yearStart: 'asc' }],
+    include: { _count: { select: { fitment: true } } },
+  })
 }
 
-
-export async function createExpense(formData: FormData) {
-    const description = formData.get('description') as string
-    const amount = parseFloat(formData.get('amount') as string)
-
-    await db.expense.create({
-        data: { description, amount }
-    })
-    revalidatePath('/finance')
+export async function createVehicleModel(formData: FormData) {
+  await db.vehicleModel.create({
+    data: {
+      make: formData.get('make') as string,
+      model: formData.get('model') as string,
+      yearStart: parseInt(formData.get('yearStart') as string),
+      yearEnd: formData.get('yearEnd') ? parseInt(formData.get('yearEnd') as string) : null,
+      engine: (formData.get('engine') as string) || null,
+      trim: (formData.get('trim') as string) || null,
+    },
+  })
+  revalidatePath('/vehiculos')
 }
 
-// --- Suppliers ---
+export async function deleteVehicleModel(formData: FormData) {
+  const id = formData.get('id') as string
+  await db.vehicleModel.delete({ where: { id } })
+  revalidatePath('/vehiculos')
+}
 
+// ─── SUPPLIERS ────────────────────────────────────────────
 export async function getSuppliers() {
-    return db.supplier.findMany({ orderBy: { name: 'asc' } })
+  return db.supplier.findMany({
+    orderBy: { name: 'asc' },
+    include: { _count: { select: { parts: true } } },
+  })
 }
 
 export async function createSupplier(formData: FormData) {
-    const name = formData.get('name') as string
-    const phone = formData.get('phone') as string | null
-    const email = formData.get('email') as string | null
-
-    await db.supplier.create({
-        data: { name, phone, email }
-    })
-    revalidatePath('/suppliers')
+  await db.supplier.create({
+    data: {
+      name: formData.get('name') as string,
+      phone: (formData.get('phone') as string) || null,
+      email: (formData.get('email') as string) || null,
+      contact: (formData.get('contact') as string) || null,
+      address: (formData.get('address') as string) || null,
+    },
+  })
+  revalidatePath('/proveedores')
 }
 
-// --- Purchases ---
-export async function getPurchaseOrders() {
-    return db.purchaseOrder.findMany({
-        orderBy: { createdAt: 'desc' },
-        include: { supplier: true, _count: { select: { itemsBought: true } } }
-    })
+export async function deleteSupplier(formData: FormData) {
+  const id = parseInt(formData.get('id') as string)
+  await db.supplier.delete({ where: { id } })
+  revalidatePath('/proveedores')
 }
-
-export async function createPurchaseOrder(formData: FormData) {
-    const supplierId = parseInt(formData.get('supplierId') as string)
-    const itemsJson = formData.get('itemsBought') as string // [{itemId, quantity, costPrice}]
-    const orderNumber = `PUR-${Date.now()}`
-    
-    const itemsBought: { itemId: number; quantity: number; costPrice: number }[] = JSON.parse(itemsJson)
-
-    return await db.$transaction(async (tx) => {
-        let totalAmount = 0
-
-        const purchaseOrder = await tx.purchaseOrder.create({
-            data: {
-                orderNumber,
-                supplierId,
-                status: 'RECEIVED'
-            }
-        })
-
-        for (const itemBuy of itemsBought) {
-            const lineTotal = itemBuy.costPrice * itemBuy.quantity
-            totalAmount += lineTotal
-
-            // Create Purchase Item
-            await tx.purchaseOrderItem.create({
-                data: {
-                    purchaseOrderId: purchaseOrder.id,
-                    itemId: itemBuy.itemId,
-                    quantity: itemBuy.quantity,
-                    costPrice: itemBuy.costPrice
-                }
-            })
-
-            // Increment Inventory & Update Cost Price
-            const item = await tx.item.findUnique({ where: { id: itemBuy.itemId } })
-            if (!item) throw new Error('Item not found')
-
-            await tx.item.update({
-                where: { id: itemBuy.itemId },
-                data: { 
-                    quantity: { increment: itemBuy.quantity },
-                    costPrice: itemBuy.costPrice // Update latest cost price
-                }
-            })
-
-            // Audit Log
-            await createAuditLog(tx, null, {
-                action: 'QTY_CHANGED',
-                entityType: 'ITEM',
-                entityId: itemBuy.itemId,
-                entityLabel: item.name,
-                fieldChanged: 'quantity',
-                oldValue: String(item.quantity),
-                newValue: String(item.quantity + itemBuy.quantity),
-                metadata: { reason: 'Purchase Order', orderNumber }
-            })
-        }
-
-        await tx.purchaseOrder.update({
-            where: { id: purchaseOrder.id },
-            data: { totalAmount }
-        })
-
-        revalidatePath('/')
-        revalidatePath('/purchases')
-        return purchaseOrder
-    })
-}
-
-// --- Seeding ---
-export async function seedInitialData() {
-    const catCount = await db.category.count()
-    if (catCount === 0) {
-        await db.category.createMany({
-            data: [
-                { name: 'Frenos', description: 'Pastillas, zapatas, bombas' },
-                { name: 'Discos', description: 'Discos de freno y tambores' },
-                { name: 'Radiadores', description: 'Radiadores, anticongelante, mangueras' },
-                { name: 'General', description: 'Otras refacciones' }
-            ]
-        })
-    }
-
-    const locCount = await db.location.count()
-    if (locCount === 0) {
-        await db.location.createMany({
-            data: [
-                { name: 'Mostrador Principal', type: 'SHELF' },
-                { name: 'Bodega A', type: 'WAREHOUSE' },
-                { name: 'Bodega B', type: 'WAREHOUSE' }
-            ]
-        })
-    }
-}
-
-// --- Export and backup ---
-export async function exportToCSV() {
-  try {
-    const items = await db.item.findMany({
-      include: {
-        category: { select: { name: true } },
-        location: { select: { name: true } }
-      },
-      orderBy: { createdAt: 'asc' }
-    });
-
-    const csvContent = [
-      'name,sku,description,status,category,location,createdAt',
-      ...items.map(item => 
-        `"${item.name}","${item.sku || ''}","${item.description || ''}","${item.status}","${item.category?.name || 'No category'}","${item.location?.name || 'No location'}","${item.createdAt}"`
-      )
-    ].join('\n');
-
-    return {
-      success: true,
-      data: csvContent,
-      filename: `inventory-${new Date().toISOString().split('T')[0]}.csv`,
-      count: items.length
-    };
-  } catch (error) {
-    console.error('Error generating CSV:', error);
-    return { success: false, error: 'Error generating CSV' };
-  }
-}
-
-export async function createManualBackup() {
-  try {
-    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-    const backupDir = path.join(process.cwd(), 'backups');
-    
-    if (!fs.existsSync(backupDir)) {
-      fs.mkdirSync(backupDir, { recursive: true });
-    }
-
-    const [items, categories, locations] = await Promise.all([
-      db.item.findMany({ include: { category: true, location: true } }),
-      db.category.findMany(),
-      db.location.findMany()
-    ]);
-
-    const backup = {
-      timestamp: new Date().toISOString(),
-      version: '1.0',
-      counts: {
-        items: items.length,
-        categories: categories.length,
-        locations: locations.length
-      },
-      data: { items, categories, locations }
-    };
-
-    const backupPath = path.join(backupDir, `manual-backup-${timestamp}.json`);
-    fs.writeFileSync(backupPath, JSON.stringify(backup, null, 2));
-
-    return {
-      success: true,
-      path: backupPath,
-      counts: backup.counts,
-      timestamp
-    };
-  } catch (error) {
-    console.error('Error creating backup:', error);
-    return { success: false, error: 'Error creating backup' };
-  }
-}
-
