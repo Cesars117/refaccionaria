@@ -16,6 +16,7 @@ model Item {
   quantity    Int      @default(0)
   sku         String?  @unique
   barcode     String?  @unique
+  siteKitSku  String?  @unique
   imageUrl    String?
   status      String   @default("AVAILABLE") // AVAILABLE, OUT_OF_STOCK, DISCONTINUED
   
@@ -46,6 +47,7 @@ model Item {
 model SerialNumber {
   id            Int      @id @default(autoincrement())
   serialNumber  String?  
+  tmoSerial     String?  
   
   item          Item     @relation(fields: [itemId], references: [id], onDelete: Cascade)
   itemId        Int
