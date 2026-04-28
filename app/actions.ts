@@ -122,7 +122,8 @@ export async function createItem(formData: FormData) {
         }
     })
 
-    const session = await getServerSession(authOptions)
+    const session = null
+
     await createAuditLog(db, session, {
         action: 'CREATED',
         entityType: 'ITEM',

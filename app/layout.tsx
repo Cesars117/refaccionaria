@@ -15,8 +15,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Integrale Inventory",
-  description: "Advanced inventory and asset management system",
+  title: "Refaccionaria Coyote",
+  description: "Sistema avanzado de gestión de inventario y flotas",
   manifest: "/manifest.json",
   icons: {
     icon: [
@@ -25,7 +25,6 @@ export const metadata: Metadata = {
     ],
     apple: "/apple-touch-icon.png",
   },
-  themeColor: "#1a237e",
 };
 
 export default function RootLayout({

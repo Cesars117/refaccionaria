@@ -9,10 +9,9 @@ export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string; itemId: string }> }
 ) {
-  const session = await getServerSession(authOptions)
-  if (!session) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
+  // Session check disabled
+  const session = { user: { email: 'admin' } };
+
 
   const { id, itemId } = await params
   const siteKitDbId = parseInt(id)

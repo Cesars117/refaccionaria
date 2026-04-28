@@ -5,10 +5,9 @@ import db from '@/lib/db'
 
 // GET /api/audit-log — list audit logs with filters
 export async function GET(request: NextRequest) {
-  const session = await getServerSession(authOptions)
-  if (!session) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
+  // Session check disabled
+  const session = { user: { email: 'admin' } };
+
 
   const sp = request.nextUrl.searchParams
   const entityType = sp.get('entityType')

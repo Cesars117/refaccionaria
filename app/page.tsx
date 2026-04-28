@@ -8,12 +8,9 @@ import { redirect } from "next/navigation";
 export const dynamic = 'force-dynamic'
 
 export default async function Home({ searchParams }: { searchParams: Promise<{ query?: string, view?: string }> }) {
-  // Check authentication
-  const session = await getServerSession(authOptions);
-  
-  if (!session) {
-    redirect('/login');
-  }
+  // Authentication disabled for now
+  const session = null;
+
 
   // Auto-seed on first load solo si no es build time (simplification for this phase)
   if (process.env.NODE_ENV !== 'production') {

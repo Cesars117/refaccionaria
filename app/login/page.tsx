@@ -24,12 +24,12 @@ export default function LoginPage() {
       })
 
       if (result?.error) {
-        setError('Invalid credentials')
+        setError('Credenciales inválidas')
       } else {
         router.push('/')
       }
     } catch {
-      setError('Something went wrong')
+      setError('Algo salió mal')
     } finally {
       setLoading(false)
     }
@@ -46,24 +46,36 @@ export default function LoginPage() {
       <div style={{
         backgroundColor: 'white',
         padding: '2rem',
-        borderRadius: '8px',
-        boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)',
+        borderRadius: '12px',
+        boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)',
         width: '100%',
         maxWidth: '400px'
       }}>
-        <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
-          <h1 style={{ fontSize: '2rem', fontWeight: 'bold', marginBottom: '0.5rem', color: '#1f2937' }}>
-            🏢 WIP Inventory
+        <div style={{ textAlign: 'center', marginBottom: '2.5rem' }}>
+          <div style={{ 
+            fontSize: '3rem', 
+            marginBottom: '1rem',
+            background: 'rgba(59, 130, 246, 0.1)',
+            width: '80px',
+            height: '80px',
+            lineHeight: '80px',
+            borderRadius: '50%',
+            margin: '0 auto 1.5rem auto'
+          }}>
+            🐺
+          </div>
+          <h1 style={{ fontSize: '1.75rem', fontWeight: '800', marginBottom: '0.5rem', color: '#111827', letterSpacing: '-0.025em' }}>
+            Refaccionaria Coyote
           </h1>
-          <p style={{ color: '#6b7280' }}>
-            Sign in to access your inventory system
+          <p style={{ color: '#6b7280', fontSize: '0.95rem' }}>
+            Sistema de Gestión de Inventario
           </p>
         </div>
 
-        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
           <div>
-            <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '500', color: '#374151' }}>
-              Username
+            <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '600', fontSize: '0.875rem', color: '#374151' }}>
+              Usuario
             </label>
             <input
               type="text"
@@ -73,17 +85,21 @@ export default function LoginPage() {
                 width: '100%',
                 padding: '0.75rem',
                 border: '1px solid #d1d5db',
-                borderRadius: '6px',
-                fontSize: '1rem'
+                borderRadius: '8px',
+                fontSize: '1rem',
+                transition: 'border-color 0.2s',
+                outline: 'none'
               }}
-              placeholder="Enter username"
+              onFocus={(e) => e.target.style.borderColor = '#3b82f6'}
+              onBlur={(e) => e.target.style.borderColor = '#d1d5db'}
+              placeholder="Nombre de usuario"
               required
             />
           </div>
 
           <div>
-            <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '500', color: '#374151' }}>
-              Password
+            <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '600', fontSize: '0.875rem', color: '#374151' }}>
+              Contraseña
             </label>
             <input
               type="password"
@@ -93,10 +109,14 @@ export default function LoginPage() {
                 width: '100%',
                 padding: '0.75rem',
                 border: '1px solid #d1d5db',
-                borderRadius: '6px',
-                fontSize: '1rem'
+                borderRadius: '8px',
+                fontSize: '1rem',
+                transition: 'border-color 0.2s',
+                outline: 'none'
               }}
-              placeholder="Enter password"
+              onFocus={(e) => e.target.style.borderColor = '#3b82f6'}
+              onBlur={(e) => e.target.style.borderColor = '#d1d5db'}
+              placeholder="••••••••"
               required
             />
           </div>
@@ -105,9 +125,11 @@ export default function LoginPage() {
             <div style={{ 
               padding: '0.75rem', 
               backgroundColor: '#fee2e2', 
-              borderRadius: '6px', 
+              borderRadius: '8px', 
               color: '#991b1b',
-              fontSize: '0.875rem'
+              fontSize: '0.875rem',
+              fontWeight: '500',
+              textAlign: 'center'
             }}>
               {error}
             </div>
@@ -118,25 +140,26 @@ export default function LoginPage() {
             disabled={loading}
             style={{
               width: '100%',
-              padding: '0.75rem',
-              backgroundColor: loading ? '#9ca3af' : '#3b82f6',
+              padding: '0.875rem',
+              backgroundColor: loading ? '#9ca3af' : '#111827',
               color: 'white',
               border: 'none',
-              borderRadius: '6px',
+              borderRadius: '8px',
               fontSize: '1rem',
-              fontWeight: '500',
-              cursor: loading ? 'not-allowed' : 'pointer'
+              fontWeight: '600',
+              cursor: loading ? 'not-allowed' : 'pointer',
+              transition: 'background-color 0.2s',
+              marginTop: '0.5rem'
             }}
           >
-            {loading ? 'Signing in...' : 'Sign In'}
+            {loading ? 'Iniciando...' : 'Entrar al Sistema'}
           </button>
         </form>
 
-        <div style={{ marginTop: '1.5rem', padding: '1rem', backgroundColor: '#f9fafb', borderRadius: '6px' }}>
-          <p style={{ fontSize: '0.875rem', color: '#6b7280', margin: 0 }}>
-            <strong>Demo credentials:</strong><br />
-            Username: admin<br />
-            Password: wip2026!
+        <div style={{ marginTop: '2rem', padding: '1.25rem', backgroundColor: '#f9fafb', borderRadius: '8px', border: '1px solid #f3f4f6' }}>
+          <p style={{ fontSize: '0.8125rem', color: '#6b7280', margin: 0, textAlign: 'center' }}>
+            <strong>Acceso administrativo:</strong><br />
+            admin / coyote2026!
           </p>
         </div>
       </div>
