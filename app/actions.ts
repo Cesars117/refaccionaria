@@ -62,6 +62,38 @@ export async function getItems(query?: string) {
     })
 }
 
+export async function findItemByBarcode(barcode: string) {
+    return db.item.findUnique({
+        where: { barcode },
+        include: { category: true, location: true, serialNumbers: true }
+    })
+}
+
+export async function updateItemBarcode(itemId: number, barcode: string) {
+    await db.item.update({
+        where: { id: itemId },
+        data: { barcode }
+    })
+    revalidatePath('/')
+    revalidatePath(`/items/${itemId}`)
+}
+
+export async function generateUniqueBarcode() {
+    let barcode = ''
+    let exists = true
+    
+    while (exists) {
+        barcode = `BC-${Date.now()}-${Math.random().toString(36).substr(2, 9).toUpperCase()}`
+        const check = await db.item.findUnique({
+            where: { barcode }
+        })
+        exists = !!check
+    }
+    
+    return barcode
+}
+
+
 export async function createItem(formData: FormData) {
     const name = formData.get('name') as string
     const categoryId = parseInt(formData.get('categoryId') as string)
@@ -133,6 +165,88 @@ export async function getClients() {
         orderBy: { name: 'asc' },
         include: { _count: { select: { vehicles: true, projects: true } } }
     })
+}
+
+export async function getCategoryById(id: number) {
+    return db.category.findUnique({
+        where: { id },
+        include: { _count: { select: { items: true } } }
+    })
+}
+
+export async function updateCategory(formData: FormData) {
+    const id = parseInt(formData.get('id') as string)
+    const name = formData.get('name') as string
+    const description = formData.get('description') as string
+
+    await db.category.update({
+        where: { id },
+        data: {
+            name,
+            description: description || null
+        }
+    })
+
+    revalidatePath('/categories')
+    redirect('/categories')
+}
+
+export async function deleteCategory(formData: FormData) {
+    const id = parseInt(formData.get('id') as string)
+    
+    const category = await db.category.findUnique({
+        where: { id },
+        include: { _count: { select: { items: true } } }
+    })
+    
+    if (category?._count?.items && category._count.items > 0) {
+        throw new Error(`Cannot delete category because it has items.`)
+    }
+
+    await db.category.delete({ where: { id } })
+    revalidatePath('/categories')
+}
+
+export async function getLocationById(id: number) {
+    return db.location.findUnique({
+        where: { id },
+        include: { _count: { select: { items: true } } }
+    })
+}
+
+export async function updateLocation(formData: FormData) {
+    const id = parseInt(formData.get('id') as string)
+    const name = formData.get('name') as string
+    const type = formData.get('type') as string
+    const description = formData.get('description') as string
+
+    await db.location.update({
+        where: { id },
+        data: {
+            name,
+            type,
+            description: description || null
+        }
+    })
+
+    revalidatePath('/locations')
+    redirect('/locations')
+}
+
+export async function deleteLocation(formData: FormData) {
+    const id = parseInt(formData.get('id') as string)
+    
+    const location = await db.location.findUnique({
+        where: { id },
+        include: { _count: { select: { items: true } } }
+    })
+    
+    if (location?._count?.items && location._count.items > 0) {
+        throw new Error(`Cannot delete location because it has items.`)
+    }
+
+    await db.location.delete({ where: { id } })
+    revalidatePath('/locations')
 }
 
 export async function createClient(formData: FormData) {
@@ -481,3 +595,75 @@ export async function seedInitialData() {
         })
     }
 }
+
+// --- Export and backup ---
+export async function exportToCSV() {
+  try {
+    const items = await db.item.findMany({
+      include: {
+        category: { select: { name: true } },
+        location: { select: { name: true } }
+      },
+      orderBy: { createdAt: 'asc' }
+    });
+
+    const csvContent = [
+      'name,sku,description,status,category,location,createdAt',
+      ...items.map(item => 
+        `"${item.name}","${item.sku || ''}","${item.description || ''}","${item.status}","${item.category?.name || 'No category'}","${item.location?.name || 'No location'}","${item.createdAt}"`
+      )
+    ].join('\n');
+
+    return {
+      success: true,
+      data: csvContent,
+      filename: `inventory-${new Date().toISOString().split('T')[0]}.csv`,
+      count: items.length
+    };
+  } catch (error) {
+    console.error('Error generating CSV:', error);
+    return { success: false, error: 'Error generating CSV' };
+  }
+}
+
+export async function createManualBackup() {
+  try {
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+    const backupDir = path.join(process.cwd(), 'backups');
+    
+    if (!fs.existsSync(backupDir)) {
+      fs.mkdirSync(backupDir, { recursive: true });
+    }
+
+    const [items, categories, locations] = await Promise.all([
+      db.item.findMany({ include: { category: true, location: true } }),
+      db.category.findMany(),
+      db.location.findMany()
+    ]);
+
+    const backup = {
+      timestamp: new Date().toISOString(),
+      version: '1.0',
+      counts: {
+        items: items.length,
+        categories: categories.length,
+        locations: locations.length
+      },
+      data: { items, categories, locations }
+    };
+
+    const backupPath = path.join(backupDir, `manual-backup-${timestamp}.json`);
+    fs.writeFileSync(backupPath, JSON.stringify(backup, null, 2));
+
+    return {
+      success: true,
+      path: backupPath,
+      counts: backup.counts,
+      timestamp
+    };
+  } catch (error) {
+    console.error('Error creating backup:', error);
+    return { success: false, error: 'Error creating backup' };
+  }
+}
+
