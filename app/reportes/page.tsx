@@ -13,8 +13,9 @@ export default async function ReportesPage() {
   const avgProfitPerItem = itemCount > 0 ? Math.round(totalValue / itemCount) : 0;
   
   return (
-    <main className="container" style={{ paddingTop: "3rem", paddingBottom: "5rem" }}>
+    <main className="p-8">
       <header style={{ marginBottom: "2.5rem" }}>
+
         <Link href="/" style={{ display: "flex", alignItems: "center", gap: "0.5rem", color: "var(--text-secondary)", textDecoration: "none", fontSize: "0.875rem", marginBottom: "1rem", fontWeight: 500 }}>
           <ArrowLeft size={16} />
           Volver al Panel

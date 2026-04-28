@@ -27,20 +27,25 @@ export const metadata: Metadata = {
   },
 };
 
+import AppShell from "./components/AppShell";
+
 export default function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
+    <html lang="es">
       <body className={`${geistSans.variable} ${geistMono.variable}`}>
         <SessionProvider>
           <LanguageProvider>
-            {children}
+            <AppShell>
+              {children}
+            </AppShell>
           </LanguageProvider>
         </SessionProvider>
       </body>
     </html>
   );
 }
+

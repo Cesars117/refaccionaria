@@ -67,8 +67,9 @@ export function DashboardContent({
   };
 
   return (
-    <main className="container" style={{ paddingTop: "3rem", paddingBottom: "5rem" }}>
+    <main className="p-8">
       {/* Header Section - Hunter Style */}
+
       <header style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", marginBottom: "2.5rem" }}>
         <div>
           <h1 className="heading-xl">Panel de Control</h1>
