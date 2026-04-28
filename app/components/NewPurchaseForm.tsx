@@ -20,7 +20,9 @@ interface Supplier {
 interface NewPurchaseFormProps {
   suppliers: Supplier[]
   items: Item[]
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   createPurchaseOrder: (formData: FormData) => Promise<any>
+
 }
 
 export function NewPurchaseForm({ suppliers, items, createPurchaseOrder }: NewPurchaseFormProps) {

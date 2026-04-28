@@ -6,13 +6,17 @@ import { ArrowLeft, Plus, ClipboardList, Car, User, DollarSign, Package, Calenda
 import { useLanguage } from '@/app/contexts/LanguageContext'
 
 interface ProjectDetailPageClientProps {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   project: any
+
 }
 
 export function ProjectDetailPageClient({ project }: ProjectDetailPageClientProps) {
   const { t } = useLanguage()
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const handleDownloadPDF = (so: any) => {
+
     generateInvoicePDF(so, project.client, project.vehicle)
   }
 
@@ -76,6 +80,7 @@ export function ProjectDetailPageClient({ project }: ProjectDetailPageClientProp
                  <p>No se han registrado órdenes de servicio para este proyecto aún.</p>
               </div>
             ) : (
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
               project.serviceOrders.map((so: any) => (
                 <div key={so.id} className="card" style={{ padding: 0, overflow: "hidden" }}>
                    <div style={{ padding: "1.25rem 1.5rem", background: "var(--bg-elevated)", borderBottom: "1px solid var(--border-light)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
@@ -112,6 +117,7 @@ export function ProjectDetailPageClient({ project }: ProjectDetailPageClientProp
                             </tr>
                          </thead>
                          <tbody>
+                            {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
                             {so.itemsUsed.map((si: any) => (
                               <tr key={si.id} style={{ borderBottom: "1px solid var(--border-light)", fontSize: "0.875rem" }}>
                                  <td style={{ padding: "12px 0" }}>

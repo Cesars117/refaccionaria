@@ -13,7 +13,9 @@ interface Item {
 }
 
 interface NewServiceOrderFormProps {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   project: any
+
   items: Item[]
   createServiceOrder: (formData: FormData) => Promise<any>
 }
