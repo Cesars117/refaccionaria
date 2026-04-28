@@ -20,10 +20,11 @@ export default function Header() {
   };
 
   return (
-    <header className="flex h-16 items-center justify-between border-b border-gray-200 bg-white px-8">
+    <header className="hidden lg:flex h-16 items-center justify-between border-b border-gray-200 bg-white px-8">
       <h2 className="text-sm font-semibold text-gray-800 uppercase tracking-wider">
         {getTitle()}
       </h2>
+
 
       <div className="flex items-center gap-4">
         <div className="relative hidden md:block">
