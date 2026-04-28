@@ -133,6 +133,21 @@ export async function createItem(formData: FormData) {
     revalidatePath('/')
 }
 
+export async function getItemById(id: number) {
+    return db.item.findUnique({
+        where: { id },
+        include: { category: true, location: true, serialNumbers: true }
+    })
+}
+
+export async function getItemSerialNumbers(itemId: number) {
+    return db.serialNumber.findMany({
+        where: { itemId },
+        select: { id: true, serialNumber: true }
+    })
+}
+
+
 export async function updateItem(formData: FormData) {
     const id = parseInt(formData.get('id') as string)
     const name = formData.get('name') as string
