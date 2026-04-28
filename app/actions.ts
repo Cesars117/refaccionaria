@@ -455,7 +455,7 @@ export async function createServiceOrder(formData: FormData) {
                 fieldChanged: 'quantity',
                 oldValue: String(item.quantity),
                 newValue: String(item.quantity - itemUsage.quantity),
-                metadata: JSON.stringify({ reason: 'Service Order', orderNumber })
+                metadata: { reason: 'Service Order', orderNumber }
             })
         }
 
@@ -570,7 +570,7 @@ export async function createPurchaseOrder(formData: FormData) {
                 fieldChanged: 'quantity',
                 oldValue: String(item.quantity),
                 newValue: String(item.quantity + itemBuy.quantity),
-                metadata: JSON.stringify({ reason: 'Purchase Order', orderNumber })
+                metadata: { reason: 'Purchase Order', orderNumber }
             })
         }
 
