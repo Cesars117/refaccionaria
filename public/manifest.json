@@ -1,7 +1,7 @@
 {
-  "name": "Refaccionaria Coyote",
-  "short_name": "Coyote",
-  "description": "Sistema avanzado de gestión de inventario y flotas",
+  "name": "A/C Radiamex",
+  "short_name": "Radiamex",
+  "description": "Venta de radiadores y sistemas de enfriamiento",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#f9fafb",

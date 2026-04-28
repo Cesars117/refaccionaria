@@ -29,14 +29,7 @@ export function BarcodeScanResult({ barcode, item, onClose }: BarcodeScanResultP
   const [showAddModal, setShowAddModal] = useState(false)
   const [allItems, setAllItems] = useState<Item[]>([])
 
-  useEffect(() => {
-    if (showAddModal && allItems.length === 0) {
-      loadItems()
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [showAddModal])
-
-  const loadItems = async () => {
+  async function loadItems() {
     try {
       const items = await getItems()
       setAllItems(items as Item[])
@@ -44,6 +37,12 @@ export function BarcodeScanResult({ barcode, item, onClose }: BarcodeScanResultP
       console.error('Error loading items:', error)
     }
   }
+
+  useEffect(() => {
+    if (showAddModal && allItems.length === 0) {
+      loadItems()
+    }
+  }, [showAddModal])
 
   const handleViewItem = () => {
     if (item) {

@@ -15,8 +15,12 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Refaccionaria Coyote",
-  description: "Sistema avanzado de gestión de inventario y flotas",
+  metadataBase: new URL("https://www.radiamex.com"),
+  title: "A/C Radiamex",
+  description: "Venta de radiadores y sistemas de enfriamiento con gestión de inventario y flotas",
+  alternates: {
+    canonical: "/",
+  },
   manifest: "/manifest.json",
   icons: {
     icon: [

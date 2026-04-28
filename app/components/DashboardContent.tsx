@@ -74,7 +74,7 @@ export function DashboardContent({
         <div>
           <h1 className="heading-xl">Panel de Control</h1>
           <p style={{ color: "var(--text-secondary)", fontSize: "0.875rem" }}>
-            Bienvenido a <strong>Refaccionaria Coyote</strong>. Resumen general de inventario y flotas.
+            Bienvenido a <strong>A/C Radiamex</strong>. Resumen general de inventario y flotas.
           </p>
         </div>
         <div style={{ display: "flex", gap: "0.75rem" }}>
@@ -128,7 +128,7 @@ export function DashboardContent({
           <ModuleLink 
             href="/clients" 
             title="Clientes y Flotas" 
-            desc="Coyote, Nissan 300 y flotas externas" 
+            desc="Empresas, unidades y flotas externas" 
             icon={<Users size={22} />} 
             color="blue"
           />

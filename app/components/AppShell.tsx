@@ -51,7 +51,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
           >
             <Menu className="h-6 w-6" />
           </button>
-          <span className="ml-3 font-bold text-gray-900">Coyote</span>
+          <span className="ml-3 font-bold text-gray-900">Radiamex</span>
         </div>
         
         <Header />

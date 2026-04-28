@@ -15,7 +15,7 @@ export function generateInvoicePDF(order: any, client: any, vehicle: any) {
   doc.setTextColor(255, 255, 255);
   doc.setFontSize(22);
   doc.setFont('helvetica', 'bold');
-  doc.text('REFACCIONARIA COYOTE', 15, 25);
+  doc.text('A/C RADIAMEX', 15, 25);
   
   doc.setFontSize(10);
   doc.setFont('helvetica', 'normal');
@@ -90,5 +90,5 @@ export function generateInvoicePDF(order: any, client: any, vehicle: any) {
   doc.text('Gracias por su confianza. Refacciones garantizadas.', 105, 280, { align: 'center' });
 
   // Save
-  doc.save(`Factura_Coyote_${order.orderNumber}.pdf`);
+  doc.save(`Factura_Radiamex_${order.orderNumber}.pdf`);
 }
