@@ -1,5 +1,5 @@
 {
-  "buildCommand": "npx prisma generate && npm run build",
+  "buildCommand": "rm -f dev.db && npx prisma db push --skip-generate && npx prisma generate && npm run build",
   "headers": [
     {
       "source": "/(.*)",
