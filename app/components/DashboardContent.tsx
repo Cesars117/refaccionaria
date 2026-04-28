@@ -1,7 +1,6 @@
 'use client'
 
-import { Package, MapPin, BarChart3, Plus, Edit, Shield, Truck, ClipboardList, ShoppingCart, Users, FileText } from "lucide-react";
-
+import { Package, BarChart3, Plus, Edit, ClipboardList, ShoppingCart, Users, ArrowUpRight, TrendingUp, DollarSign } from "lucide-react";
 import Link from 'next/link';
 import { useLanguage } from '@/app/contexts/LanguageContext';
 import { SearchModal } from './SearchModal';
@@ -24,12 +23,9 @@ interface Item {
   serialNumbers: Array<{ id: number; serialNumber: string | null; tmoSerial: string | null }>;
 }
 
-// Wrapper component to manage modal state - key prop on this resets the state on query change
 function SearchModalWrapper({ items, query }: { items: Item[], query: string }) {
   const [isOpen, setIsOpen] = useState(true);
-
   if (!isOpen) return null;
-
   return (
     <SearchModal
       items={items}
@@ -43,7 +39,7 @@ interface DashboardContentProps {
   itemCount: number;
   clientCount: number;
   projectCount: number;
-  totalValue: number; // Profit
+  totalValue: number;
   revenue: number;
   costs: number;
   displayItems: Item[];
@@ -66,224 +62,204 @@ export function DashboardContent({
   const [selectedTableItem, setSelectedTableItem] = useState<Item | null>(null);
 
   const getSectionTitle = () => {
-    if (query) {
-      return `${t('dashboard.searchResults')} (${displayItems.length})`;
-    }
+    if (query) return `${t('dashboard.searchResults')} (${displayItems.length})`;
     return t(sectionTitleKey);
   };
 
   return (
-    <main className="container" style={{ paddingTop: "4rem", paddingBottom: "4rem" }}>
-      {/* Header Section */}
-      <header style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "3rem" }}>
+    <main className="container" style={{ paddingTop: "3rem", paddingBottom: "5rem" }}>
+      {/* Header Section - Hunter Style */}
+      <header style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", marginBottom: "2.5rem" }}>
         <div>
-          <h1 className="heading-xl">Refaccionaria Coyote</h1>
-          <p style={{ color: "var(--text-secondary)", marginTop: "0.5rem" }}>Sistema de Control de Inventario y Proyectos</p>
+          <h1 className="heading-xl">Panel de Control</h1>
+          <p style={{ color: "var(--text-secondary)", fontSize: "0.875rem" }}>
+            Bienvenido a <strong>Refaccionaria Coyote</strong>. Resumen general de inventario y flotas.
+          </p>
         </div>
-        <div style={{ display: "flex", gap: "1rem", alignItems: "center" }}>
-          <Link href="/items/new" className="btn btn-primary" style={{ textDecoration: 'none' }}>
-            <Plus size={20} />
+        <div style={{ display: "flex", gap: "0.75rem" }}>
+          <Link href="/reportes" className="btn btn-secondary">
+            <BarChart3 size={18} />
+            Ver Reportes
+          </Link>
+          <Link href="/items/new" className="btn btn-primary">
+            <Plus size={18} />
             {t('dashboard.newArticle')}
           </Link>
         </div>
       </header>
 
-      {/* Stats Grid */}
-      <section style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: "1.5rem", marginBottom: "3rem" }}>
-        <div className="card">
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-            <div>
-              <p style={{ color: "var(--text-secondary)", fontSize: "0.875rem", fontWeight: 500 }}>Inventario Total</p>
-              <h3 className="heading-lg" style={{ marginTop: "0.5rem" }}>{itemCount}</h3>
-            </div>
-            <div style={{ background: "rgba(99, 102, 241, 0.1)", padding: "10px", borderRadius: "8px", color: "var(--primary)" }}>
-              <Package size={24} />
-            </div>
-          </div>
-        </div>
-
-        <div className="card">
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-            <div>
-              <p style={{ color: "var(--text-secondary)", fontSize: "0.875rem", fontWeight: 500 }}>Ventas (Ingresos)</p>
-              <h3 className="heading-lg" style={{ marginTop: "0.5rem" }}>${revenue.toLocaleString()}</h3>
-            </div>
-            <div style={{ background: "rgba(16, 185, 129, 0.1)", padding: "10px", borderRadius: "8px", color: "var(--success)" }}>
-              <BarChart3 size={24} />
-            </div>
-          </div>
-        </div>
-
-        <div className="card">
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-            <div>
-              <p style={{ color: "var(--text-secondary)", fontSize: "0.875rem", fontWeight: 500 }}>Utilidad (Margen)</p>
-              <h3 className="heading-lg" style={{ marginTop: "0.5rem" }}>${totalValue.toLocaleString()}</h3>
-            </div>
-            <div style={{ background: "rgba(59, 130, 246, 0.1)", padding: "10px", borderRadius: "8px", color: "#3b82f6" }}>
-              <BarChart3 size={24} />
-            </div>
-          </div>
-        </div>
+      {/* Stats Grid - Hunter Style */}
+      <section className="grid-stats">
+        <MetricCard 
+          title="Inventario Total" 
+          value={itemCount} 
+          icon={<Package size={24} />} 
+          color="blue" 
+          subtitle="Artículos registrados"
+        />
+        <MetricCard 
+          title="Ventas Totales" 
+          value={`$${revenue.toLocaleString()}`} 
+          icon={<TrendingUp size={24} />} 
+          color="green" 
+          subtitle="Ingresos brutos"
+        />
+        <MetricCard 
+          title="Utilidad Neta" 
+          value={`$${totalValue.toLocaleString()}`} 
+          icon={<DollarSign size={24} />} 
+          color="indigo" 
+          subtitle="Margen de ganancia"
+        />
+        <MetricCard 
+          title="Proyectos" 
+          value={projectCount} 
+          icon={<ClipboardList size={24} />} 
+          color="orange" 
+          subtitle="Órdenes activas"
+        />
       </section>
 
-      {/* Management Links */}
+      {/* Management Modules - Hunter Style */}
       <section style={{ marginBottom: "3rem" }}>
-        <h2 className="heading-lg" style={{ marginBottom: "1.5rem" }}>Módulos de Gestión</h2>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: "1.5rem" }}>
-          <Link href="/clients" className="card" style={{ textDecoration: 'none', color: 'inherit', padding: '1.5rem' }}>
-            <div style={{ display: "flex", alignItems: "center", gap: "16px" }}>
-              <div style={{ background: "rgba(99, 102, 241, 0.1)", padding: "12px", borderRadius: "8px", color: "var(--primary)" }}>
-                <Package size={24} />
-              </div>
-              <div>
-                <h3 style={{ margin: 0, fontWeight: 600, fontSize: "1.125rem" }}>Clientes y Flotas</h3>
-                <p style={{ margin: 0, color: "var(--text-secondary)", fontSize: "0.875rem", marginTop: "4px" }}>Control de clientes como Coyote y flotas Nissan 300</p>
-              </div>
-            </div>
-          </Link>
-
-          <Link href="/projects" className="card" style={{ textDecoration: 'none', color: 'inherit', padding: '1.5rem' }}>
-            <div style={{ display: "flex", alignItems: "center", gap: "16px" }}>
-              <div style={{ background: "rgba(16, 185, 129, 0.1)", padding: "12px", borderRadius: "8px", color: "var(--success)" }}>
-                <ClipboardList size={24} />
-              </div>
-              <div>
-                <h3 style={{ margin: 0, fontWeight: 600, fontSize: "1.125rem" }}>Proyectos de Mantenimiento</h3>
-                <p style={{ margin: 0, color: "var(--text-secondary)", fontSize: "0.875rem", marginTop: "4px" }}>Contratos de frenos, discos y radiadores</p>
-              </div>
-            </div>
-          </Link>
-
-          <Link href="/finance" className="card" style={{ textDecoration: 'none', color: 'inherit', padding: '1.5rem' }}>
-            <div style={{ display: "flex", alignItems: "center", gap: "16px" }}>
-              <div style={{ background: "rgba(245, 158, 11, 0.1)", padding: "12px", borderRadius: "8px", color: "#f59e0b" }}>
-                <BarChart3 size={24} />
-              </div>
-              <div>
-                <h3 style={{ margin: 0, fontWeight: 600, fontSize: "1.125rem" }}>Finanzas y Control</h3>
-                <p style={{ margin: 0, color: "var(--text-secondary)", fontSize: "0.875rem", marginTop: "4px" }}>Control de costos, márgenes y facturas</p>
-              </div>
-            </div>
-          </Link>
+        <h2 className="heading-lg" style={{ marginBottom: "1.25rem" }}>Gestión Operativa</h2>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))", gap: "1.25rem" }}>
+          <ModuleLink 
+            href="/clients" 
+            title="Clientes y Flotas" 
+            desc="Coyote, Nissan 300 y flotas externas" 
+            icon={<Users size={22} />} 
+            color="blue"
+          />
+          <ModuleLink 
+            href="/projects" 
+            title="Mantenimientos" 
+            desc="Frenos, discos y radiadores" 
+            icon={<ClipboardList size={22} />} 
+            color="green"
+          />
+          <ModuleLink 
+            href="/finance" 
+            title="Finanzas Pro" 
+            desc="Facturas, costos y balances" 
+            icon={<BarChart3 size={22} />} 
+            color="indigo"
+          />
         </div>
       </section>
 
-
-      {/* Inventory Preview */}
+      {/* Recent Inventory Table - Hunter Style */}
       <section>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1.5rem" }}>
-          <h2 className="heading-lg">{getSectionTitle()}</h2>
-        </div>
-
-        {/* Show search modal when there's a query - key prop forces new instance on query change */}
-        {query && displayItems.length > 0 && (
-          <SearchModalWrapper
-            key={query}
-            items={displayItems}
-            query={query}
-          />
-        )}
-
-        {/* Table view for non-search results */}
-        {!query && (
-          <div className="card" style={{ padding: 0, overflow: "hidden" }}>
-            {displayItems.length === 0 ? (
-              <div style={{ padding: "48px", textAlign: "center", color: "var(--text-secondary)" }}>
-                {t('dashboard.noItems')}
-              </div>
-            ) : (
+        <div className="card" style={{ padding: 0, overflow: "hidden" }}>
+          <div className="card-header" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <span>{getSectionTitle()}</span>
+            <Link href="/items" style={{ fontSize: "0.75rem", color: "var(--primary)", textDecoration: "none", fontWeight: 600 }}>
+              Ver todo el inventario →
+            </Link>
+          </div>
+          
+          {displayItems.length === 0 ? (
+            <div style={{ padding: "3rem", textAlign: "center", color: "var(--text-muted)" }}>
+              {t('dashboard.noItems')}
+            </div>
+          ) : (
             <div style={{ overflowX: "auto" }}>
-              <table style={{ width: "100%", borderCollapse: "collapse", textAlign: "left", minWidth: "800px" }}>
-              <thead>
-                <tr style={{ borderBottom: "1px solid var(--border-light)", background: "var(--bg-elevated)" }}>
-                  <th style={{ padding: "16px 24px", color: "var(--text-secondary)", fontWeight: 500 }}>{t('common.name')}</th>
-                  <th style={{ padding: "16px 24px", color: "var(--text-secondary)", fontWeight: 500 }}>{t('common.barcode')}</th>
-                  <th style={{ padding: "16px 24px", color: "var(--text-secondary)", fontWeight: 500 }}>{t('common.category')}</th>
-                  <th style={{ padding: "16px 24px", color: "var(--text-secondary)", fontWeight: 500 }}>{t('common.location')}</th>
-                  <th style={{ padding: "16px 24px", color: "var(--text-secondary)", fontWeight: 500 }}>{t('common.quantity')}</th>
-                  <th style={{ padding: "16px 24px", color: "var(--text-secondary)", fontWeight: 500 }}>{t('common.status')}</th>
-                  <th style={{ padding: "16px 24px", color: "var(--text-secondary)", fontWeight: 500, textAlign: "center" }}>{t('dashboard.actions')}</th>
-                </tr>
-              </thead>
-              <tbody>
-                {displayItems.map((item) => (
-                  <tr 
-                    key={item.id} 
-                    onClick={() => setSelectedTableItem(item)}
-                    style={{ 
-                      borderBottom: "1px solid var(--border-light)",
-                      cursor: 'pointer',
-                      transition: 'background 0.2s'
-                    }}
-                    onMouseOver={(e) => e.currentTarget.style.background = 'var(--background)'}
-                    onMouseOut={(e) => e.currentTarget.style.background = 'transparent'}
-                  >
-                    <td style={{ padding: "16px 24px", fontWeight: 500 }}>{item.name}</td>
-                    <td style={{ padding: "16px 24px", color: "var(--text-secondary)", fontFamily: "monospace", fontSize: "0.875rem" }}>
-                      {item.barcode ? (
-                        <span style={{ background: "rgba(99, 102, 241, 0.1)", padding: "4px 8px", borderRadius: "4px" }}>
-                          {item.barcode}
-                        </span>
-                      ) : (
-                        <span style={{ color: "var(--text-muted)" }}>-</span>
-                      )}
-                    </td>
-                    <td style={{ padding: "16px 24px", color: "var(--text-secondary)" }}>{item.category.name}</td>
-                    <td style={{ padding: "16px 24px", color: "var(--text-secondary)" }}>{item.location.name}</td>
-                    <td style={{ padding: "16px 24px" }}>
-                      <div>
-                        <span style={{ fontWeight: 500 }}>
-                          {((item.unitType === 'BOX' || item.unitsPerBox) && item.unitsPerBox && typeof item.unitsPerBox === 'number')
-                            ? `${item.totalUnits || (item.quantity * item.unitsPerBox)} units - ${item.quantity} box`
-                            : (item.quantity || 0)
-                          }
-                        </span>
-                        {((item.unitType === 'BOX' || item.unitsPerBox) && item.unitsPerBox && typeof item.unitsPerBox === 'number') && (
-                          <div style={{ fontSize: "0.875rem", color: "var(--text-secondary)" }}>
-                            {item.quantity} {t('dashboard.boxes')} × {item.unitsPerBox} = {item.totalUnits || (item.quantity * item.unitsPerBox)} {t('dashboard.units')}
-                          </div>
-                        )}
-                        {item.unitType === 'UNIT' && (
-                          <div style={{ fontSize: "0.875rem", color: "var(--text-secondary)" }}>{t('dashboard.units')}</div>
-                        )}
-                      </div>
-                    </td>
-                    <td style={{ padding: "16px 24px" }}>
-                      <span style={{
-                        background: "rgba(16, 185, 129, 0.1)",
-                        color: "var(--success)",
-                        padding: "4px 12px",
-                        borderRadius: "20px",
-                        fontSize: "0.875rem",
-                        fontWeight: 600
-                      }}>
-                        {t(`status.${item.status}`)}
-                      </span>
-                    </td>
-                    <td style={{ padding: "16px 24px", textAlign: "center" }}>
-                      <Link href={`/items/${item.id}`} style={{ color: "var(--primary)", cursor: "pointer", textDecoration: "none" }}>
-                        <Edit size={18} />
-                      </Link>
-                    </td>
+              <table>
+                <thead>
+                  <tr>
+                    <th>{t('common.name')}</th>
+                    <th>{t('common.barcode')}</th>
+                    <th>{t('common.category')}</th>
+                    <th>{t('common.location')}</th>
+                    <th>{t('common.quantity')}</th>
+                    <th>{t('common.status')}</th>
+                    <th style={{ textAlign: "center" }}>{t('dashboard.actions')}</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {displayItems.map((item) => (
+                    <tr key={item.id} onClick={() => setSelectedTableItem(item)} style={{ cursor: 'pointer' }}>
+                      <td className="font-medium">{item.name}</td>
+                      <td>
+                        <code style={{ background: "#f3f4f6", padding: "2px 6px", borderRadius: "4px", fontSize: "0.75rem" }}>
+                          {item.barcode || '—'}
+                        </code>
+                      </td>
+                      <td style={{ color: "var(--text-secondary)" }}>{item.category.name}</td>
+                      <td style={{ color: "var(--text-secondary)" }}>{item.location.name}</td>
+                      <td>
+                        <span className="font-semibold">{item.quantity}</span>
+                        <span style={{ color: "var(--text-muted)", marginLeft: "4px", fontSize: "0.75rem" }}>
+                          {item.unitType?.toLowerCase() || 'und'}
+                        </span>
+                      </td>
+                      <td>
+                        <span className={`status-badge badge-${item.status === 'AVAILABLE' ? 'success' : 'warning'}`}>
+                          {t(`status.${item.status}`)}
+                        </span>
+                      </td>
+                      <td style={{ textAlign: "center" }}>
+                        <Link href={`/items/${item.id}`} style={{ color: "var(--primary)" }}>
+                          <Edit size={16} />
+                        </Link>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
           )}
         </div>
-        )}
       </section>
 
-      {/* Item Details Modal for table clicks */}
-      {selectedTableItem && (
-        <SearchModal
-          items={[selectedTableItem]}
-          query={selectedTableItem.name}
-          onClose={() => setSelectedTableItem(null)}
-        />
-      )}
+      {/* Modals */}
+      {(query && displayItems.length > 0) && <SearchModalWrapper key={query} items={displayItems} query={query} />}
+      {selectedTableItem && <SearchModal items={[selectedTableItem]} query={selectedTableItem.name} onClose={() => setSelectedTableItem(null)} />}
     </main>
+  );
+}
+
+function MetricCard({ title, value, icon, color, subtitle }: any) {
+  const colors: any = {
+    blue: { bg: "#eff6ff", text: "#2563eb" },
+    green: { bg: "#ecfdf5", text: "#059669" },
+    indigo: { bg: "#eef2ff", text: "#4f46e5" },
+    orange: { bg: "#fff7ed", text: "#ea580c" }
+  };
+  const theme = colors[color] || colors.blue;
+
+  return (
+    <div className="card" style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+      <div>
+        <p style={{ color: "var(--text-secondary)", fontSize: "0.75rem", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.025em" }}>
+          {title}
+        </p>
+        <h3 style={{ fontSize: "1.75rem", fontWeight: 800, marginTop: "0.25rem", color: "#111827" }}>{value}</h3>
+        {subtitle && <p style={{ color: "var(--text-muted)", fontSize: "0.75rem", marginTop: "0.25rem" }}>{subtitle}</p>}
+      </div>
+      <div style={{ backgroundColor: theme.bg, color: theme.text, padding: "12px", borderRadius: "12px" }}>
+        {icon}
+      </div>
+    </div>
+  );
+}
+
+function ModuleLink({ href, title, desc, icon, color }: any) {
+  const colors: any = {
+    blue: "#2563eb",
+    green: "#059669",
+    indigo: "#4f46e5"
+  };
+  return (
+    <Link href={href} className="card" style={{ textDecoration: 'none', color: 'inherit', padding: '1.25rem', display: "flex", alignItems: "center", gap: "1rem" }}>
+      <div style={{ color: colors[color], backgroundColor: `${colors[color]}10`, padding: "10px", borderRadius: "10px" }}>
+        {icon}
+      </div>
+      <div>
+        <h3 style={{ fontSize: "1rem", fontWeight: 700, margin: 0 }}>{title}</h3>
+        <p style={{ fontSize: "0.8125rem", color: "var(--text-secondary)", margin: "2px 0 0 0" }}>{desc}</p>
+      </div>
+      <ArrowUpRight size={16} style={{ marginLeft: "auto", color: "var(--text-muted)" }} />
+    </Link>
   );
 }
