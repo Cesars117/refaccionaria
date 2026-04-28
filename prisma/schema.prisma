@@ -38,6 +38,7 @@ model Item {
   serialNumbers SerialNumber[]
   serviceItems  ServiceOrderItem[]
   purchaseItems PurchaseOrderItem[]
+  siteKitAssetTags SiteKitAssetTag[]
 
   createdAt   DateTime @default(now())
 
@@ -51,6 +52,7 @@ model SerialNumber {
   
   item          Item     @relation(fields: [itemId], references: [id], onDelete: Cascade)
   itemId        Int
+  siteKitAssetTags SiteKitAssetTag[]
 
   createdAt     DateTime @default(now())
 }
@@ -226,3 +228,54 @@ model AuditLog {
   metadata      String?  // JSON string
   createdAt     DateTime @default(now())
 }
+
+// --- T-Mobile BOM / Site Kits ---
+model SiteKit {
+  id            Int       @id @default(autoincrement())
+  siteKitId     String    @unique  // e.g. "SITEKIT_HNYH0Q4_12"
+  bomId         String?
+  siteId        String?
+  projectName   String?
+  pallets       Int?
+  authNumber    String?
+  mslLocation   String?
+  company       String?
+  catsCode      String?
+  subcontractor String?
+  dateCompleted DateTime?
+  status        String    @default("PENDING") // PENDING, IN_PROGRESS, COMPLETE, DISCREPANCY
+  items         SiteKitItem[]
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+}
+
+model SiteKitItem {
+  id               Int       @id @default(autoincrement())
+  siteKit          SiteKit   @relation(fields: [siteKitId], references: [id], onDelete: Cascade)
+  siteKitId        Int
+  siteKitSku       String
+  description      String
+  quantityExpected Int
+  quantityReceived Int       @default(0)
+  status           String    @default("PENDING") // PENDING, VERIFIED, MISSING, SURPLUS, PARTIAL
+  notes            String?
+  assetTags        SiteKitAssetTag[]
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+}
+
+model SiteKitAssetTag {
+  id              Int           @id @default(autoincrement())
+  siteKitItem     SiteKitItem   @relation(fields: [siteKitItemId], references: [id], onDelete: Cascade)
+  siteKitItemId   Int
+  assetTag        String        // TM########
+  status          String        @default("EXPECTED") // EXPECTED, RECEIVED, MISSING
+  linkedItem      Item?         @relation(fields: [linkedItemId], references: [id])
+  linkedItemId    Int?
+  linkedSerial    SerialNumber? @relation(fields: [linkedSerialId], references: [id])
+  linkedSerialId  Int?
+  verifiedAt      DateTime?
+  verifiedBy      String?
+  createdAt       DateTime      @default(now())
+}
+
