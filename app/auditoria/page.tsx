@@ -14,10 +14,45 @@ export default async function AuditoriaPage() {
     redirect('/')
   }
 
-  const logs = await db.auditLog.findMany({
-    orderBy: { createdAt: 'desc' },
-    take: 200,
-  })
+  let logs: Array<{
+    id: number
+    action: string
+    entityType: string
+    entityId: string
+    userEmail: string
+    userName?: string | null
+    details?: string | null
+    createdAt: Date
+  }> = []
+
+  try {
+    logs = await db.auditLog.findMany({
+      orderBy: { createdAt: 'desc' },
+      take: 200,
+    })
+  } catch {
+    // Compatibilidad con esquema anterior sin columna userName.
+    const rows = (await db.$queryRaw`
+      SELECT id, action, entityType, entityId, userEmail, details, createdAt
+      FROM audit_log
+      ORDER BY createdAt DESC
+      LIMIT 200
+    `) as Array<{
+      id: number
+      action: string
+      entityType: string
+      entityId: string
+      userEmail: string
+      details: string | null
+      createdAt: string
+    }>
+
+    logs = rows.map((row) => ({
+      ...row,
+      userName: null,
+      createdAt: new Date(row.createdAt),
+    }))
+  }
 
   return (
     <div className="p-6 space-y-6">

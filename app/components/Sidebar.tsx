@@ -16,9 +16,10 @@ import {
   Building2,
   Shield,
   ClipboardList,
+  LogOut,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { useSession } from 'next-auth/react';
+import { signOut, useSession } from 'next-auth/react';
 import { canManageUsers, canViewAudit } from '@/lib/rbac';
 
 const navSections = [
@@ -136,6 +137,14 @@ export default function Sidebar() {
             <p className="text-[10px] text-gray-400">www.radiamex.com</p>
           </div>
         </div>
+        <button
+          type="button"
+          onClick={() => signOut({ callbackUrl: '/login' })}
+          className="mt-4 flex w-full items-center justify-center gap-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs font-semibold text-red-700 transition-colors hover:bg-red-100"
+        >
+          <LogOut className="h-4 w-4" />
+          Cerrar sesión
+        </button>
       </div>
     </aside>
   );
