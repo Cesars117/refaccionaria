@@ -10,8 +10,8 @@ export default function Header() {
   const { data: session } = useSession();
 
   const roleLabel: Record<string, string> = {
-    ADMIN: 'Administrador',
-    SUPERVISOR: 'Supervisor',
+    SUPER_ADMIN: 'Super Admin',
+    ADMIN: 'Admin',
     TRABAJADOR: 'Trabajador',
   };
 
