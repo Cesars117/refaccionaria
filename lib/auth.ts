@@ -5,7 +5,7 @@ import bcrypt from "bcryptjs"
 import db from "@/lib/db"
 import { ROLES, normalizeRole } from "@/lib/rbac"
 
-async function ensureBootstrapAdmin(username: string, password: string) {
+async function ensureBootstrapSuperAdmin(username: string, password: string) {
   const userCount = await db.user.count()
   if (userCount > 0) return
 
@@ -17,10 +17,10 @@ async function ensureBootstrapAdmin(username: string, password: string) {
   await db.user.create({
     data: {
       username: "admin",
-      name: "Administrador",
+      name: "Super Admin",
       email: "admin@radiamex.local",
       password: hashedPassword,
-      role: ROLES.ADMIN,
+      role: ROLES.SUPER_ADMIN,
       isActive: true,
     },
   })
@@ -40,7 +40,7 @@ export const authOptions: NextAuthOptions = {
 
         if (!username || !password) return null
 
-        await ensureBootstrapAdmin(username, password)
+        await ensureBootstrapSuperAdmin(username, password)
 
         const user = await db.user.findFirst({
           where: {

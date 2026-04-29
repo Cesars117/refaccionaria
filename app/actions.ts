@@ -20,7 +20,7 @@ async function getSessionUser() {
 async function requireAdminUser() {
   const user = await getSessionUser()
   if (!canManageUsers(user.role)) {
-    throw new Error('No autorizado: solo administrador')
+    throw new Error('No autorizado: solo super admin')
   }
   return user
 }
@@ -664,7 +664,7 @@ export async function deleteSupplier(formData: FormData) {
   revalidatePath('/proveedores')
 }
 
-// ─── USER MANAGEMENT (ADMIN) ─────────────────────────────
+// ─── USER MANAGEMENT (SUPER ADMIN) ───────────────────────
 export async function getUsers() {
   await requireAdminUser()
   return db.user.findMany({
@@ -754,12 +754,18 @@ export async function resetUserPassword(formData: FormData) {
   const hashedPassword = await bcrypt.hash(password, 12)
   await db.user.update({ where: { id }, data: { password: hashedPassword } })
 
-  await logAudit('USER_PASSWORD_RESET', 'USER', id, 'Contraseña restablecida por administrador')
+  await logAudit('USER_PASSWORD_RESET', 'USER', id, 'Contraseña restablecida por super admin')
   revalidatePath('/usuarios')
 }
 
 export async function ensureDefaultAdmin() {
-  const adminCount = await db.user.count({ where: { role: ROLES.ADMIN } })
+  const adminCount = await db.user.count({
+    where: {
+      role: {
+        in: [ROLES.SUPER_ADMIN, 'ADMIN'],
+      },
+    },
+  })
   if (adminCount > 0) return
 
   const bootstrapPassword = process.env.ADMIN_BOOTSTRAP_PASSWORD || 'radiamex2026!'
@@ -767,10 +773,10 @@ export async function ensureDefaultAdmin() {
   await db.user.create({
     data: {
       username: 'admin',
-      name: 'Administrador',
+      name: 'Super Admin',
       email: 'admin@radiamex.local',
       password: hashedPassword,
-      role: ROLES.ADMIN,
+      role: ROLES.SUPER_ADMIN,
       isActive: true,
     },
   })

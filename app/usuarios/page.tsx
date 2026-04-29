@@ -26,7 +26,7 @@ export default async function UsuariosPage() {
     <div className="p-6 space-y-6">
       <div>
         <h1 className="text-2xl font-bold text-gray-900">Usuarios y Roles</h1>
-        <p className="text-sm text-gray-500">Solo administrador puede crear usuarios, cambiar roles y restablecer contraseñas.</p>
+        <p className="text-sm text-gray-500">Solo super admin puede crear usuarios, cambiar roles y restablecer contraseñas.</p>
       </div>
 
       <div className="card p-5">
@@ -37,8 +37,8 @@ export default async function UsuariosPage() {
           <input name="email" type="email" required placeholder="Correo" className="input-field" />
           <input name="password" type="password" required minLength={8} placeholder="Contraseña" className="input-field" />
           <select name="role" defaultValue={ROLES.TRABAJADOR} className="input-field">
+            <option value={ROLES.SUPER_ADMIN}>Super Admin</option>
             <option value={ROLES.ADMIN}>Admin</option>
-            <option value={ROLES.SUPERVISOR}>Supervisor</option>
             <option value={ROLES.TRABAJADOR}>Trabajador</option>
           </select>
           <div className="md:col-span-5">
@@ -69,8 +69,8 @@ export default async function UsuariosPage() {
                   <form action={updateUserRole} className="flex items-center gap-2">
                     <input type="hidden" name="id" value={u.id} />
                     <select name="role" defaultValue={u.role} className="input-field h-9 py-1 px-2 text-xs">
+                      <option value={ROLES.SUPER_ADMIN}>Super Admin</option>
                       <option value={ROLES.ADMIN}>Admin</option>
-                      <option value={ROLES.SUPERVISOR}>Supervisor</option>
                       <option value={ROLES.TRABAJADOR}>Trabajador</option>
                     </select>
                     <button className="btn-secondary text-xs h-9" type="submit">Guardar</button>
