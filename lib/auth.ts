@@ -5,14 +5,44 @@ import bcrypt from "bcryptjs"
 import db from "@/lib/db"
 import { ROLES, normalizeRole } from "@/lib/rbac"
 
-async function ensureBootstrapSuperAdmin(username: string, password: string) {
-  const superAdminCount = await db.user.count({ where: { role: ROLES.SUPER_ADMIN } })
-  if (superAdminCount > 0) return
+function getAllowedBootstrapPasswords(): string[] {
+  const values = [process.env.ADMIN_BOOTSTRAP_PASSWORD, "radiamex2026!"]
+  return [...new Set(values.filter((v): v is string => Boolean(v && v.trim())))]
+}
 
-  const bootstrapPassword = process.env.ADMIN_BOOTSTRAP_PASSWORD || "radiamex2026!"
-  if (username !== "admin" || password !== bootstrapPassword) return
+async function ensureBootstrapSuperAdmin(username: string, password: string) {
+  if (username !== "admin") return
+
+  const allowedPasswords = getAllowedBootstrapPasswords()
+  if (!allowedPasswords.includes(password)) return
+
+  const existing = await db.user.findFirst({
+    where: {
+      OR: [
+        { username: "admin" },
+        { email: "admin@radiamex.local" },
+        { role: ROLES.SUPER_ADMIN },
+      ],
+    },
+    orderBy: { createdAt: "asc" },
+  })
 
   const hashedPassword = await bcrypt.hash(password, 12)
+
+  if (existing) {
+    await db.user.update({
+      where: { id: existing.id },
+      data: {
+        username: existing.username || "admin",
+        email: existing.email || "admin@radiamex.local",
+        name: existing.name || "Super Admin",
+        role: ROLES.SUPER_ADMIN,
+        isActive: true,
+        password: hashedPassword,
+      },
+    })
+    return
+  }
 
   await db.user.create({
     data: {
