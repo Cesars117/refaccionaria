@@ -667,18 +667,40 @@ export async function deleteSupplier(formData: FormData) {
 // ─── USER MANAGEMENT (SUPER ADMIN) ───────────────────────
 export async function getUsers() {
   await requireAdminUser()
-  return db.user.findMany({
-    orderBy: { createdAt: 'desc' },
-    select: {
-      id: true,
-      username: true,
-      email: true,
-      name: true,
-      role: true,
-      isActive: true,
-      createdAt: true,
-    },
-  })
+
+  try {
+    return await db.user.findMany({
+      orderBy: { createdAt: 'desc' },
+      select: {
+        id: true,
+        username: true,
+        email: true,
+        name: true,
+        role: true,
+        isActive: true,
+        createdAt: true,
+      },
+    })
+  } catch {
+    const rows = (await db.$queryRaw`
+      SELECT id, email, name, role, isActive, createdAt
+      FROM users
+      ORDER BY createdAt DESC
+    `) as Array<{
+      id: string
+      email: string
+      name: string
+      role: string
+      isActive: boolean
+      createdAt: string
+    }>
+
+    return rows.map((row) => ({
+      ...row,
+      username: null,
+      createdAt: new Date(row.createdAt),
+    }))
+  }
 }
 
 export async function createUserAccount(formData: FormData) {
@@ -696,16 +718,38 @@ export async function createUserAccount(formData: FormData) {
 
   const hashedPassword = await bcrypt.hash(password, 12)
 
-  const created = await db.user.create({
-    data: {
-      username,
-      name,
-      email,
-      password: hashedPassword,
-      role,
-      isActive: true,
-    },
-  })
+  let created: { id: string; username: string | null; email: string }
+
+  try {
+    created = await db.user.create({
+      data: {
+        username,
+        name,
+        email,
+        password: hashedPassword,
+        role,
+        isActive: true,
+      },
+      select: { id: true, username: true, email: true },
+    })
+  } catch {
+    await db.$executeRaw`
+      INSERT INTO users (id, email, password, name, role, isActive, createdAt, updatedAt)
+      VALUES (${crypto.randomUUID()}, ${email}, ${hashedPassword}, ${name}, ${role}, 1, datetime('now'), datetime('now'))
+    `
+
+    const fallback = await db.user.findFirst({
+      where: { email },
+      orderBy: { createdAt: 'desc' },
+      select: { id: true, email: true },
+    })
+
+    if (!fallback) {
+      throw new Error('No se pudo crear el usuario')
+    }
+
+    created = { id: fallback.id, username: null, email: fallback.email }
+  }
 
   await logAudit('USER_CREATED', 'USER', created.id, `Usuario ${created.username ?? created.email} (${role})`)
   revalidatePath('/usuarios')
@@ -717,10 +761,18 @@ export async function updateUserRole(formData: FormData) {
   const id = formData.get('id') as string
   const role = normalizeRole(formData.get('role') as string)
 
-  await db.user.update({
-    where: { id },
-    data: { role },
-  })
+  try {
+    await db.user.update({
+      where: { id },
+      data: { role },
+    })
+  } catch {
+    await db.$executeRaw`
+      UPDATE users
+      SET role = ${role}, updatedAt = datetime('now')
+      WHERE id = ${id}
+    `
+  }
 
   await logAudit('USER_ROLE_UPDATED', 'USER', id, `Rol cambiado a ${role}`)
   revalidatePath('/usuarios')
@@ -732,10 +784,18 @@ export async function updateUserStatus(formData: FormData) {
   const id = formData.get('id') as string
   const isActive = formData.get('isActive') === 'true'
 
-  await db.user.update({
-    where: { id },
-    data: { isActive },
-  })
+  try {
+    await db.user.update({
+      where: { id },
+      data: { isActive },
+    })
+  } catch {
+    await db.$executeRaw`
+      UPDATE users
+      SET isActive = ${isActive ? 1 : 0}, updatedAt = datetime('now')
+      WHERE id = ${id}
+    `
+  }
 
   await logAudit('USER_STATUS_UPDATED', 'USER', id, isActive ? 'Usuario activado' : 'Usuario desactivado')
   revalidatePath('/usuarios')
@@ -752,7 +812,15 @@ export async function resetUserPassword(formData: FormData) {
   }
 
   const hashedPassword = await bcrypt.hash(password, 12)
-  await db.user.update({ where: { id }, data: { password: hashedPassword } })
+  try {
+    await db.user.update({ where: { id }, data: { password: hashedPassword } })
+  } catch {
+    await db.$executeRaw`
+      UPDATE users
+      SET password = ${hashedPassword}, updatedAt = datetime('now')
+      WHERE id = ${id}
+    `
+  }
 
   await logAudit('USER_PASSWORD_RESET', 'USER', id, 'Contraseña restablecida por super admin')
   revalidatePath('/usuarios')
