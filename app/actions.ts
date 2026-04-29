@@ -759,13 +759,7 @@ export async function resetUserPassword(formData: FormData) {
 }
 
 export async function ensureDefaultAdmin() {
-  const adminCount = await db.user.count({
-    where: {
-      role: {
-        in: [ROLES.SUPER_ADMIN, 'ADMIN'],
-      },
-    },
-  })
+  const adminCount = await db.user.count({ where: { role: ROLES.SUPER_ADMIN } })
   if (adminCount > 0) return
 
   const bootstrapPassword = process.env.ADMIN_BOOTSTRAP_PASSWORD || 'radiamex2026!'

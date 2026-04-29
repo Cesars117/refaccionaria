@@ -6,8 +6,8 @@ import db from "@/lib/db"
 import { ROLES, normalizeRole } from "@/lib/rbac"
 
 async function ensureBootstrapSuperAdmin(username: string, password: string) {
-  const userCount = await db.user.count()
-  if (userCount > 0) return
+  const superAdminCount = await db.user.count({ where: { role: ROLES.SUPER_ADMIN } })
+  if (superAdminCount > 0) return
 
   const bootstrapPassword = process.env.ADMIN_BOOTSTRAP_PASSWORD || "radiamex2026!"
   if (username !== "admin" || password !== bootstrapPassword) return
