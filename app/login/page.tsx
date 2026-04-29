@@ -25,7 +25,11 @@ export default function LoginPage() {
       })
 
       if (result?.error) {
-        setError('Credenciales inválidas')
+        if (result.error === 'CredentialsSignin') {
+          setError('Credenciales inválidas')
+        } else {
+          setError(`No se pudo iniciar sesión (${result.error})`)
+        }
       } else {
         router.push('/')
       }
