@@ -1,6 +1,6 @@
 import db from '@/lib/db';
 import { formatCurrency } from '@/lib/utils';
-import { Package, Users, FileText, Wrench, AlertTriangle, TrendingUp } from 'lucide-react';
+import { Package, Users, FileText, AlertTriangle, TrendingUp } from 'lucide-react';
 
 export const dynamic = 'force-dynamic';
 
@@ -9,13 +9,11 @@ export default async function ReportesPage() {
     partCount,
     customerCount,
     quotes,
-    projects,
     lowStockParts,
   ] = await Promise.all([
     db.part.count(),
     db.customer.count(),
     db.quote.findMany({ select: { status: true, total: true } }),
-    db.maintenanceProject.groupBy({ by: ['status'], _count: { id: true } }),
     db.part.findMany({
       where: { quantity: { lte: db.part.fields.minStock } },
       orderBy: { quantity: 'asc' },
@@ -28,8 +26,6 @@ export default async function ReportesPage() {
   const pendingRevenue = quotes.filter((q) => q.status === 'PENDING').reduce((s, q) => s + q.total, 0);
   const soldCount = quotes.filter((q) => q.status === 'SOLD').length;
   const pendingCount = quotes.filter((q) => q.status === 'PENDING').length;
-  const projectsByStatus: Record<string, number> = {};
-  projects.forEach((p) => { projectsByStatus[p.status] = p._count.id; });
 
   return (
     <div className="p-6">
@@ -70,26 +66,6 @@ export default async function ReportesPage() {
                   <span className="text-sm font-semibold text-gray-900">{row.count} cot.</span>
                   {row.value !== null && <span className="ml-3 text-sm text-gray-500">{formatCurrency(row.value)}</span>}
                 </div>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        <div className="card p-5">
-          <h2 className="text-base font-semibold text-gray-900 mb-4 flex items-center gap-2">
-            <Wrench className="h-4 w-4" /> Proyectos de Mantenimiento
-          </h2>
-          <div className="space-y-3">
-            {[
-              { key: 'OPEN',          label: 'Abiertos',    cls: 'bg-blue-100 text-blue-700' },
-              { key: 'IN_PROGRESS',   label: 'En proceso',  cls: 'bg-amber-100 text-amber-700' },
-              { key: 'WAITING_PARTS', label: 'Esp. partes', cls: 'bg-orange-100 text-orange-700' },
-              { key: 'COMPLETED',     label: 'Completados', cls: 'bg-green-100 text-green-700' },
-              { key: 'CANCELLED',     label: 'Cancelados',  cls: 'bg-red-100 text-red-700' },
-            ].map((row) => (
-              <div key={row.key} className="flex items-center justify-between rounded-lg p-3 bg-gray-50">
-                <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${row.cls}`}>{row.label}</span>
-                <span className="text-sm font-semibold text-gray-900">{projectsByStatus[row.key] ?? 0}</span>
               </div>
             ))}
           </div>

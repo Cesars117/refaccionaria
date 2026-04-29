@@ -78,7 +78,7 @@ export default async function ClientesPage() {
                   <td className="px-4 py-3 text-sm text-gray-600">{c._count.quotes}</td>
                   <td className="px-4 py-3 text-sm text-gray-600">
                     {c.fleet ? (
-                      <span>{c.fleet._count.units} unidades · {c.fleet._count.projects} proyectos</span>
+                      <span>{c.fleet._count.units} unidades</span>
                     ) : '—'}
                   </td>
                   <td className="px-4 py-3 text-right">
