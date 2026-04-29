@@ -42,43 +42,45 @@ export default function LoginPage() {
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'center',
-      backgroundColor: '#f3f4f6'
+      background: 'radial-gradient(circle at top, #20345f 0%, #10192f 52%, #0b1020 100%)',
+      padding: '24px'
     }}>
       <div style={{
-        backgroundColor: 'white',
+        background: 'linear-gradient(180deg, #182542 0%, #ffffff 36%)',
         padding: '2rem',
-        borderRadius: '12px',
-        boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)',
+        borderRadius: '20px',
+        boxShadow: '0 24px 64px rgba(0, 0, 0, 0.35)',
         width: '100%',
-        maxWidth: '400px'
+        maxWidth: '420px',
+        border: '1px solid rgba(255,255,255,0.08)'
       }}>
         <div style={{ textAlign: 'center', marginBottom: '2.5rem' }}>
           <div style={{ 
             position: 'relative',
             marginBottom: '1rem',
-            background: '#fff',
-            width: '96px',
-            height: '96px',
-            borderRadius: '12px',
+            background: 'linear-gradient(145deg, #0d1428 0%, #142447 100%)',
+            width: '112px',
+            height: '112px',
+            borderRadius: '20px',
             margin: '0 auto 1.5rem auto'
           }}>
             <Image
               src="/logoradiamex.jpg"
               alt="A/C Radiamex"
               fill
-              style={{ objectFit: 'cover', borderRadius: '12px' }}
+              style={{ objectFit: 'contain', borderRadius: '20px', padding: '10px' }}
               priority
             />
           </div>
-          <h1 style={{ fontSize: '1.75rem', fontWeight: '800', marginBottom: '0.5rem', color: '#111827', letterSpacing: '-0.025em' }}>
+          <h1 style={{ fontSize: '1.75rem', fontWeight: '800', marginBottom: '0.5rem', color: '#ffffff', letterSpacing: '-0.025em' }}>
             A/C Radiamex
           </h1>
-          <p style={{ color: '#6b7280', fontSize: '0.95rem' }}>
+          <p style={{ color: '#9cb3da', fontSize: '0.95rem' }}>
             Venta de Radiadores y Sistemas de Enfriamiento
           </p>
         </div>
 
-        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem', background: 'white', padding: '1.5rem', borderRadius: '16px' }}>
           <div>
             <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '600', fontSize: '0.875rem', color: '#374151' }}>
               Usuario
@@ -162,10 +164,12 @@ export default function LoginPage() {
           </button>
         </form>
 
-        <div style={{ marginTop: '2rem', padding: '1.25rem', backgroundColor: '#f9fafb', borderRadius: '8px', border: '1px solid #f3f4f6' }}>
+        <div style={{ marginTop: '1rem', padding: '1rem', backgroundColor: 'rgba(255,255,255,0.08)', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.08)' }}>
           <p style={{ fontSize: '0.8125rem', color: '#6b7280', margin: 0, textAlign: 'center' }}>
-            <strong>A/C Radiamex</strong><br />
+            <strong style={{ color: '#fff' }}>A/C Radiamex</strong><br />
+            <span style={{ color: '#b7c7e4' }}>
             Usa tus credenciales de acceso.
+            </span>
           </p>
         </div>
       </div>

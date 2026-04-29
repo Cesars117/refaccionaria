@@ -1,6 +1,6 @@
 import { getCustomers } from '@/app/actions';
 import Link from 'next/link';
-import { ArrowRight, Car, Wrench, Plus } from 'lucide-react';
+import { ArrowRight, Car, Plus } from 'lucide-react';
 
 export const dynamic = 'force-dynamic';
 
@@ -28,7 +28,6 @@ export default async function FlotasPage() {
           {customers.map((c: any) => {
             const fleet = c.fleet;
             const unitCount = fleet?._count?.units ?? fleet?.units?.length ?? 0;
-            const projectCount = fleet?._count?.projects ?? fleet?.projects?.length ?? 0;
             return (
               <Link key={c.id} href={`/clientes/${c.id}`} className="card p-5 hover:shadow-md transition-shadow">
                 <div className="flex items-start justify-between mb-3">
@@ -38,16 +37,11 @@ export default async function FlotasPage() {
                   </div>
                   <ArrowRight className="h-4 w-4 text-gray-400 mt-1" />
                 </div>
-                <div className="grid grid-cols-2 gap-2">
+                <div className="grid grid-cols-1 gap-2">
                   <div className="rounded-lg bg-gray-50 p-2 text-center">
                     <Car className="h-4 w-4 text-gray-400 mx-auto mb-0.5" />
                     <p className="text-lg font-bold text-gray-900">{unitCount}</p>
                     <p className="text-xs text-gray-500">Unidades</p>
-                  </div>
-                  <div className="rounded-lg bg-gray-50 p-2 text-center">
-                    <Wrench className="h-4 w-4 text-gray-400 mx-auto mb-0.5" />
-                    <p className="text-lg font-bold text-gray-900">{projectCount}</p>
-                    <p className="text-xs text-gray-500">Proyectos</p>
                   </div>
                 </div>
                 {c.phone && <p className="mt-2 text-xs text-gray-400">{c.phone}</p>}
