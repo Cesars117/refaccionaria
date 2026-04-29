@@ -33,21 +33,25 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         isSidebarOpen ? "translate-x-0" : "-translate-x-full"
       )}>
         <Sidebar />
-        {/* Close button for mobile */}
-        <button 
-          className="absolute top-4 right-[-40px] flex h-8 w-8 items-center justify-center rounded-md bg-white shadow-md lg:hidden"
-          onClick={() => setIsSidebarOpen(false)}
-        >
-          <X className="h-5 w-5 text-gray-600" />
-        </button>
+        {/* Close button for mobile: only visible when sidebar is open */}
+        {isSidebarOpen && (
+          <button
+            className="absolute top-4 right-[-40px] flex h-8 w-8 items-center justify-center rounded-md bg-white shadow-md lg:hidden"
+            onClick={() => setIsSidebarOpen(false)}
+            aria-label="Cerrar menú"
+          >
+            <X className="h-5 w-5 text-gray-600" />
+          </button>
+        )}
       </div>
 
       <div className="flex flex-1 flex-col overflow-hidden">
         {/* Header with Mobile Menu Toggle */}
         <div className="flex items-center border-b border-gray-200 bg-white lg:hidden px-4 h-16">
-          <button 
+          <button
             onClick={() => setIsSidebarOpen(true)}
-            className="p-2 -ml-2 text-gray-600 hover:bg-gray-100 rounded-md"
+            className="p-2 -ml-2 text-gray-700 hover:bg-gray-100 rounded-md border border-gray-200"
+            aria-label="Abrir menú"
           >
             <Menu className="h-6 w-6" />
           </button>
