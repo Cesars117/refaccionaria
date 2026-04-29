@@ -8,11 +8,9 @@ export type UserRole = (typeof ROLES)[keyof typeof ROLES]
 
 export function normalizeRole(role?: string | null): UserRole {
   // Compatibilidad con roles previos:
-  // ADMIN (anterior) -> SUPER_ADMIN
   // SUPERVISOR (anterior) -> ADMIN
   if (role === 'SUPERVISOR') return ROLES.ADMIN
-  if (role === 'ADMIN') return ROLES.SUPER_ADMIN
-  if (role === ROLES.SUPER_ADMIN || role === ROLES.TRABAJADOR) return role
+  if (role === ROLES.SUPER_ADMIN || role === ROLES.ADMIN || role === ROLES.TRABAJADOR) return role
   return ROLES.TRABAJADOR
 }
 
