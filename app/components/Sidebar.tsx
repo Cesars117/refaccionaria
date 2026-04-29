@@ -54,10 +54,10 @@ export default function Sidebar() {
   const pathname = usePathname();
 
   return (
-    <aside className="flex w-64 flex-col border-r border-[#1b2742] bg-[#101a31] text-white h-full overflow-y-auto">
+    <aside className="flex w-64 flex-col border-r border-gray-200 bg-white h-full overflow-y-auto">
       {/* Logo */}
-      <div className="flex h-20 items-center gap-3 border-b border-white/10 bg-[linear-gradient(135deg,#0f1730_0%,#18284a_100%)] px-4">
-        <div className="relative h-12 w-12 overflow-hidden rounded-xl border border-white/10 bg-[#0b1224] shadow-[0_8px_24px_rgba(0,0,0,0.25)]">
+      <div className="flex h-20 items-center gap-3 border-b border-gray-100 px-4">
+        <div className="relative h-12 w-12 overflow-hidden rounded-xl border border-[#d7e3f8] bg-[linear-gradient(145deg,#edf3ff_0%,#dbe8ff_100%)] shadow-sm">
           <Image
             src="/logoradiamex.jpg"
             alt="A/C Radiamex"
@@ -67,8 +67,8 @@ export default function Sidebar() {
           />
         </div>
         <div>
-          <h1 className="text-lg font-bold text-white">A/C Radiamex</h1>
-          <p className="text-[10px] font-medium uppercase tracking-[0.22em] text-[#8aa3d4]">
+          <h1 className="text-lg font-bold text-gray-900">A/C Radiamex</h1>
+          <p className="text-[10px] font-medium uppercase tracking-[0.18em] text-gray-500">
             Radiadores y Enfriamiento
           </p>
         </div>
@@ -78,7 +78,7 @@ export default function Sidebar() {
       <nav className="flex-1 overflow-y-auto px-3 py-4 space-y-4">
         {navSections.map((section) => (
           <div key={section.label}>
-            <p className="px-3 mb-1 text-[10px] font-bold uppercase tracking-widest text-[#6f88b7]">
+            <p className="px-3 mb-1 text-[10px] font-bold uppercase tracking-widest text-gray-400">
               {section.label}
             </p>
             {section.items.map((item) => {
@@ -102,14 +102,14 @@ export default function Sidebar() {
       </nav>
 
       {/* Footer */}
-      <div className="border-t border-white/10 px-4 py-4">
+      <div className="border-t border-gray-100 px-4 py-4">
         <div className="flex items-center gap-3">
-          <div className="flex h-8 w-8 items-center justify-center rounded-full bg-white/10 text-[#8cb6ff]">
+          <div className="flex h-8 w-8 items-center justify-center rounded-full bg-brand-100 text-brand-600">
             <Users className="h-4 w-4" />
           </div>
           <div>
-            <p className="text-xs font-medium text-white">A/C Radiamex</p>
-            <p className="text-[10px] text-[#89a0c8]">www.radiamex.com</p>
+            <p className="text-xs font-medium text-gray-700">A/C Radiamex</p>
+            <p className="text-[10px] text-gray-400">www.radiamex.com</p>
           </div>
         </div>
       </div>
