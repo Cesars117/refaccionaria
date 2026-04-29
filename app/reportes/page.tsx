@@ -1,10 +1,16 @@
 import db from '@/lib/db';
 import { formatCurrency } from '@/lib/utils';
 import { Package, Users, FileText, AlertTriangle, TrendingUp } from 'lucide-react';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/lib/auth';
+import { canViewRevenue } from '@/lib/rbac';
 
 export const dynamic = 'force-dynamic';
 
 export default async function ReportesPage() {
+  const session = await getServerSession(authOptions);
+  const allowRevenue = canViewRevenue(session?.user?.role);
+
   const [
     partCount,
     customerCount,
@@ -36,8 +42,12 @@ export default async function ReportesPage() {
 
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
         {[
-          { label: 'Ingresos (ventas)', value: formatCurrency(totalRevenue), icon: TrendingUp, color: 'text-green-600' },
-          { label: 'Cotizaciones pendientes', value: formatCurrency(pendingRevenue), icon: FileText, color: 'text-amber-600' },
+          ...(allowRevenue
+            ? [
+                { label: 'Ingresos (ventas)', value: formatCurrency(totalRevenue), icon: TrendingUp, color: 'text-green-600' },
+                { label: 'Cotizaciones pendientes', value: formatCurrency(pendingRevenue), icon: FileText, color: 'text-amber-600' },
+              ]
+            : []),
           { label: 'Partes en catálogo', value: partCount, icon: Package, color: 'text-blue-600' },
           { label: 'Clientes', value: customerCount, icon: Users, color: 'text-purple-600' },
         ].map((s) => (
@@ -64,7 +74,7 @@ export default async function ReportesPage() {
                 <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${row.cls}`}>{row.label}</span>
                 <div className="text-right">
                   <span className="text-sm font-semibold text-gray-900">{row.count} cot.</span>
-                  {row.value !== null && <span className="ml-3 text-sm text-gray-500">{formatCurrency(row.value)}</span>}
+                  {allowRevenue && row.value !== null && <span className="ml-3 text-sm text-gray-500">{formatCurrency(row.value)}</span>}
                 </div>
               </div>
             ))}

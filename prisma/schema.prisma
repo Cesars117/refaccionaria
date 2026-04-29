@@ -14,10 +14,11 @@ datasource db {
 // ─── USUARIOS Y SEGURIDAD ──────────────────────────────────
 model User {
   id        String   @id @default(cuid())
+  username  String?  @unique
   email     String   @unique
   password  String
   name      String
-  role      String   @default("VENDEDOR") // ADMIN, VENDEDOR
+  role      String   @default("TRABAJADOR") // ADMIN | SUPERVISOR | TRABAJADOR
   isActive  Boolean  @default(true)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -294,6 +295,7 @@ model AuditLog {
   entityType String
   entityId   String
   userEmail  String
+  userName   String?
   details    String?
   createdAt  DateTime @default(now())
 

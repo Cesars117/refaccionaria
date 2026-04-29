@@ -2,9 +2,20 @@
 
 import { Bell, Search, User } from 'lucide-react';
 import { usePathname } from 'next/navigation';
+import { useSession } from 'next-auth/react';
+import { normalizeRole } from '@/lib/rbac';
 
 export default function Header() {
   const pathname = usePathname();
+  const { data: session } = useSession();
+
+  const roleLabel: Record<string, string> = {
+    ADMIN: 'Administrador',
+    SUPERVISOR: 'Supervisor',
+    TRABAJADOR: 'Trabajador',
+  };
+
+  const role = normalizeRole(session?.user?.role);
   
   const getTitle = () => {
     if (pathname === '/') return 'Dashboard';
@@ -44,8 +55,8 @@ export default function Header() {
 
         <div className="flex items-center gap-3">
           <div className="text-right hidden sm:block">
-            <p className="text-xs font-bold text-gray-900">Admin</p>
-            <p className="text-[10px] text-gray-500">Administrador</p>
+            <p className="text-xs font-bold text-gray-900">{session?.user?.name ?? 'Usuario'}</p>
+            <p className="text-[10px] text-gray-500">{roleLabel[role]}</p>
           </div>
           <div className="flex h-9 w-9 items-center justify-center rounded-full bg-gray-100 border border-gray-200">
             <User className="h-5 w-5 text-gray-600" />
