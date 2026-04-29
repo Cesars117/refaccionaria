@@ -2,6 +2,9 @@ import db from '@/lib/db';
 import Link from 'next/link';
 import { Package, Users, Car, FileText, AlertTriangle, DollarSign, ArrowRight } from 'lucide-react';
 import { formatCurrency } from '@/lib/utils';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/lib/auth';
+import { canViewRevenue } from '@/lib/rbac';
 
 export const dynamic = 'force-dynamic';
 
@@ -41,6 +44,8 @@ async function getDashboardData() {
 }
 
 export default async function Home() {
+  const session = await getServerSession(authOptions);
+  const allowRevenue = canViewRevenue(session?.user?.role);
   const data = await getDashboardData();
 
   return (
@@ -58,7 +63,9 @@ export default async function Home() {
         <StatCard title="Vehículos" value={data.vehicleCount} icon={<Car className="h-6 w-6" />} color="indigo" href="/vehiculos" />
         <StatCard title="Cotizaciones Pendientes" value={data.pendingQuotes} icon={<FileText className="h-6 w-6" />} color="yellow" href="/cotizaciones?status=PENDING" />
         <StatCard title="Ventas Cerradas" value={data.soldQuotes} icon={<FileText className="h-6 w-6" />} color="green" href="/cotizaciones?status=SOLD" />
-        <StatCard title="Ingresos" value={formatCurrency(data.totalRevenue)} icon={<DollarSign className="h-6 w-6" />} color="emerald" />
+        {allowRevenue && (
+          <StatCard title="Ingresos" value={formatCurrency(data.totalRevenue)} icon={<DollarSign className="h-6 w-6" />} color="emerald" />
+        )}
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

@@ -3,6 +3,41 @@
 import db from '@/lib/db'
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
+import { getServerSession } from 'next-auth'
+import bcrypt from 'bcryptjs'
+import { authOptions } from '@/lib/auth'
+import { canManageUsers, normalizeRole, ROLES } from '@/lib/rbac'
+
+async function getSessionUser() {
+  const session = await getServerSession(authOptions)
+  return {
+    email: session?.user?.email ?? 'system@local',
+    name: session?.user?.name ?? 'Sistema',
+    role: normalizeRole(session?.user?.role),
+  }
+}
+
+async function requireAdminUser() {
+  const user = await getSessionUser()
+  if (!canManageUsers(user.role)) {
+    throw new Error('No autorizado: solo administrador')
+  }
+  return user
+}
+
+async function logAudit(action: string, entityType: string, entityId: string, details?: string) {
+  const actor = await getSessionUser()
+  await db.auditLog.create({
+    data: {
+      action,
+      entityType,
+      entityId,
+      userEmail: actor.email,
+      userName: actor.name,
+      details: details ?? null,
+    },
+  })
+}
 
 // ─── SEED DATA ────────────────────────────────────────────
 export async function seedInitialData() {
@@ -84,7 +119,7 @@ export async function createPart(formData: FormData) {
   const priceFleet = formData.get('priceFleet') ? parseFloat(formData.get('priceFleet') as string) : null
   const cost = parseFloat(formData.get('cost') as string || '0')
 
-  await db.part.create({
+  const created = await db.part.create({
     data: {
       name,
       categoryId,
@@ -101,19 +136,21 @@ export async function createPart(formData: FormData) {
       description: (formData.get('description') as string) || null,
     },
   })
+  await logAudit('PART_CREATED', 'PART', String(created.id), `Nueva parte: ${created.name}`)
   revalidatePath('/partes')
   redirect('/partes')
 }
 
 export async function updatePart(formData: FormData) {
   const id = parseInt(formData.get('id') as string)
+  const previous = await db.part.findUnique({ where: { id }, select: { quantity: true, name: true } })
   const quantity = parseInt(formData.get('quantity') as string || '0')
   const minStock = parseInt(formData.get('minStock') as string || '0')
   const price = parseFloat(formData.get('price') as string || '0')
   const priceFleet = formData.get('priceFleet') ? parseFloat(formData.get('priceFleet') as string) : null
   const cost = parseFloat(formData.get('cost') as string || '0')
 
-  await db.part.update({
+  const updated = await db.part.update({
     where: { id },
     data: {
       name: formData.get('name') as string,
@@ -127,6 +164,11 @@ export async function updatePart(formData: FormData) {
       description: (formData.get('description') as string) || null,
     },
   })
+  if (previous && previous.quantity !== quantity) {
+    await logAudit('PART_QTY_CHANGED', 'PART', String(updated.id), `Parte ${updated.name}: ${previous.quantity} -> ${quantity}`)
+  } else {
+    await logAudit('PART_UPDATED', 'PART', String(updated.id), `Parte actualizada: ${updated.name}`)
+  }
   revalidatePath('/partes')
   revalidatePath(`/partes/${id}`)
   redirect('/partes')
@@ -134,7 +176,9 @@ export async function updatePart(formData: FormData) {
 
 export async function deletePart(formData: FormData) {
   const id = parseInt(formData.get('id') as string)
+  const existing = await db.part.findUnique({ where: { id }, select: { name: true } })
   await db.part.delete({ where: { id } })
+  await logAudit('PART_DELETED', 'PART', String(id), `Parte eliminada: ${existing?.name ?? id}`)
   revalidatePath('/partes')
   redirect('/partes')
 }
@@ -497,6 +541,7 @@ export async function createQuote(formData: FormData) {
       status: 'PENDING',
     },
   })
+  await logAudit('QUOTE_CREATED', 'QUOTE', quote.id, `Cotización ${quote.quoteNumber} creada`)
   revalidatePath('/cotizaciones')
   redirect(`/cotizaciones/${quote.id}`)
 }
@@ -505,6 +550,7 @@ export async function updateQuoteStatus(formData: FormData) {
   const id = formData.get('id') as string
   const status = formData.get('status') as string
   await db.quote.update({ where: { id }, data: { status } })
+  await logAudit('QUOTE_STATUS_CHANGED', 'QUOTE', id, `Estado actualizado a ${status}`)
   revalidatePath('/cotizaciones')
   revalidatePath(`/cotizaciones/${id}`)
 }
@@ -616,4 +662,117 @@ export async function deleteSupplier(formData: FormData) {
   const id = parseInt(formData.get('id') as string)
   await db.supplier.delete({ where: { id } })
   revalidatePath('/proveedores')
+}
+
+// ─── USER MANAGEMENT (ADMIN) ─────────────────────────────
+export async function getUsers() {
+  await requireAdminUser()
+  return db.user.findMany({
+    orderBy: { createdAt: 'desc' },
+    select: {
+      id: true,
+      username: true,
+      email: true,
+      name: true,
+      role: true,
+      isActive: true,
+      createdAt: true,
+    },
+  })
+}
+
+export async function createUserAccount(formData: FormData) {
+  await requireAdminUser()
+
+  const username = (formData.get('username') as string | null)?.trim()
+  const name = (formData.get('name') as string | null)?.trim()
+  const email = (formData.get('email') as string | null)?.trim().toLowerCase()
+  const password = formData.get('password') as string
+  const role = normalizeRole(formData.get('role') as string)
+
+  if (!username || !name || !email || !password) {
+    throw new Error('Todos los campos son obligatorios')
+  }
+
+  const hashedPassword = await bcrypt.hash(password, 12)
+
+  const created = await db.user.create({
+    data: {
+      username,
+      name,
+      email,
+      password: hashedPassword,
+      role,
+      isActive: true,
+    },
+  })
+
+  await logAudit('USER_CREATED', 'USER', created.id, `Usuario ${created.username ?? created.email} (${role})`)
+  revalidatePath('/usuarios')
+}
+
+export async function updateUserRole(formData: FormData) {
+  await requireAdminUser()
+
+  const id = formData.get('id') as string
+  const role = normalizeRole(formData.get('role') as string)
+
+  await db.user.update({
+    where: { id },
+    data: { role },
+  })
+
+  await logAudit('USER_ROLE_UPDATED', 'USER', id, `Rol cambiado a ${role}`)
+  revalidatePath('/usuarios')
+}
+
+export async function updateUserStatus(formData: FormData) {
+  await requireAdminUser()
+
+  const id = formData.get('id') as string
+  const isActive = formData.get('isActive') === 'true'
+
+  await db.user.update({
+    where: { id },
+    data: { isActive },
+  })
+
+  await logAudit('USER_STATUS_UPDATED', 'USER', id, isActive ? 'Usuario activado' : 'Usuario desactivado')
+  revalidatePath('/usuarios')
+}
+
+export async function resetUserPassword(formData: FormData) {
+  await requireAdminUser()
+
+  const id = formData.get('id') as string
+  const password = formData.get('password') as string
+
+  if (!password || password.length < 8) {
+    throw new Error('La contraseña debe tener al menos 8 caracteres')
+  }
+
+  const hashedPassword = await bcrypt.hash(password, 12)
+  await db.user.update({ where: { id }, data: { password: hashedPassword } })
+
+  await logAudit('USER_PASSWORD_RESET', 'USER', id, 'Contraseña restablecida por administrador')
+  revalidatePath('/usuarios')
+}
+
+export async function ensureDefaultAdmin() {
+  const adminCount = await db.user.count({ where: { role: ROLES.ADMIN } })
+  if (adminCount > 0) return
+
+  const bootstrapPassword = process.env.ADMIN_BOOTSTRAP_PASSWORD || 'radiamex2026!'
+  const hashedPassword = await bcrypt.hash(bootstrapPassword, 12)
+  await db.user.create({
+    data: {
+      username: 'admin',
+      name: 'Administrador',
+      email: 'admin@radiamex.local',
+      password: hashedPassword,
+      role: ROLES.ADMIN,
+      isActive: true,
+    },
+  })
+  revalidatePath('/usuarios')
 }

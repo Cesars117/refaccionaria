@@ -14,8 +14,12 @@ import {
   Truck,
   TrendingUp,
   Building2,
+  Shield,
+  ClipboardList,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useSession } from 'next-auth/react';
+import { canManageUsers, canViewAudit } from '@/lib/rbac';
 
 const navSections = [
   {
@@ -46,12 +50,32 @@ const navSections = [
     label: 'REPORTES',
     items: [
       { name: 'Reportes', href: '/reportes', icon: TrendingUp },
+      { name: 'Auditoría', href: '/auditoria', icon: ClipboardList, requiresAudit: true },
+    ],
+  },
+  {
+    label: 'ADMIN',
+    items: [
+      { name: 'Usuarios', href: '/usuarios', icon: Shield, requiresAdmin: true },
     ],
   },
 ];
 
 export default function Sidebar() {
   const pathname = usePathname();
+  const { data: session } = useSession();
+  const userRole = session?.user?.role;
+
+  const visibleSections = navSections
+    .map((section) => ({
+      ...section,
+      items: section.items.filter((item) => {
+        if (item.requiresAdmin && !canManageUsers(userRole)) return false;
+        if (item.requiresAudit && !canViewAudit(userRole)) return false;
+        return true;
+      }),
+    }))
+    .filter((section) => section.items.length > 0);
 
   return (
     <aside className="flex w-64 flex-col border-r border-gray-200 bg-white h-full overflow-y-auto">
@@ -76,7 +100,7 @@ export default function Sidebar() {
 
       {/* Navigation */}
       <nav className="flex-1 overflow-y-auto px-3 py-4 space-y-4">
-        {navSections.map((section) => (
+        {visibleSections.map((section) => (
           <div key={section.label}>
             <p className="px-3 mb-1 text-[10px] font-bold uppercase tracking-widest text-gray-400">
               {section.label}

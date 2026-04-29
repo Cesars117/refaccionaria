@@ -2,6 +2,9 @@ import { getQuotes } from '@/app/actions';
 import Link from 'next/link';
 import { Plus, ArrowRight } from 'lucide-react';
 import { formatCurrency } from '@/lib/utils';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/lib/auth';
+import { canViewRevenue } from '@/lib/rbac';
 
 export const dynamic = 'force-dynamic';
 
@@ -12,6 +15,8 @@ const STATUS: Record<string, { label: string; class: string }> = {
 };
 
 export default async function CotizacionesPage() {
+  const session = await getServerSession(authOptions);
+  const allowRevenue = canViewRevenue(session?.user?.role);
   const quotes = await getQuotes();
 
   const pending = quotes.filter((q) => q.status === 'PENDING').length;
@@ -41,7 +46,7 @@ export default async function CotizacionesPage() {
           <p className="text-xs text-gray-500">Vendidas</p>
         </div>
         <div className="card p-4 text-center">
-          <p className="text-lg font-bold text-gray-900">{formatCurrency(totalSold)}</p>
+          <p className="text-lg font-bold text-gray-900">{allowRevenue ? formatCurrency(totalSold) : 'Oculto'}</p>
           <p className="text-xs text-gray-500">Total vendido</p>
         </div>
       </div>
@@ -76,7 +81,7 @@ export default async function CotizacionesPage() {
                     <td className="px-4 py-3 text-sm text-gray-700">{q.customer.name}</td>
                     <td className="px-4 py-3 text-sm text-gray-600">{q.vehicleRef ?? '—'}</td>
                     <td className="px-4 py-3 text-sm text-gray-600">{q._count.items}</td>
-                    <td className="px-4 py-3 text-right text-sm font-semibold text-gray-900">{formatCurrency(q.total)}</td>
+                    <td className="px-4 py-3 text-right text-sm font-semibold text-gray-900">{allowRevenue ? formatCurrency(q.total) : 'Oculto'}</td>
                     <td className="px-4 py-3">
                       <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${sc.class}`}>
                         {sc.label}
