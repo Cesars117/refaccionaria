@@ -5,11 +5,9 @@ const nextConfig: NextConfig = {
   typescript: {
     ignoreBuildErrors: true,
   },
-  experimental: {
-    serverActions: {
-      bodySizeLimit: '20mb',
-      allowedOrigins: ['sistem.radiamex.com', 'www.radiamex.com', 'radiamex.com']
-    },
+  serverActions: {
+    bodySizeLimit: '20mb',
+    allowedOrigins: ['*.radiamex.com', 'radiamex.com', 'localhost:3000']
   },
 };
 
