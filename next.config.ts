@@ -8,6 +8,7 @@ const nextConfig: NextConfig = {
   experimental: {
     serverActions: {
       bodySizeLimit: '20mb',
+      allowedOrigins: ['sistem.radiamex.com', 'www.radiamex.com', 'radiamex.com']
     },
   },
 };
