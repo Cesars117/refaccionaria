@@ -14,7 +14,7 @@ export default function UserRow({ u }: { u: any }) {
   const [loading, setLoading] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const handleAction = async (action: Function, formData: FormData, actionName: string) => {
+  const handleAction = async (action: (fd: FormData) => Promise<any>, formData: FormData, actionName: string) => {
     setLoading(actionName);
     setError(null);
     try {
