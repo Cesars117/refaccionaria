@@ -47,13 +47,15 @@ export default function EditParteForm({
         </div>
         <div>
           <label className="label-field">Categoría *</label>
-          <select name="categoryId" required defaultValue={part.categoryId} className="input-field">
+          <select name="categoryId" required defaultValue={part.categoryId ?? ''} className="input-field">
+            <option value="" disabled>Seleccionar categoría...</option>
             {categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
           </select>
         </div>
         <div>
           <label className="label-field">Ubicación *</label>
-          <select name="locationId" required defaultValue={part.locationId} className="input-field">
+          <select name="locationId" required defaultValue={part.locationId ?? ''} className="input-field">
+            <option value="" disabled>Seleccionar ubicación...</option>
             {locations.map((l) => <option key={l.id} value={l.id}>{l.name}</option>)}
           </select>
         </div>
