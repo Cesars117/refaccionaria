@@ -153,23 +153,19 @@ export async function updatePart(formData: FormData) {
     const previous = await db.part.findUnique({ where: { id }, select: { quantity: true, name: true } })
     if (!previous) throw new Error('Parte no encontrada')
 
-    const categoryId = parseInt(formData.get('categoryId') as string || '0')
-    const locationId = parseInt(formData.get('locationId') as string || '0')
+    const categoryId = parseInt(formData.get('categoryId') as string || '0') || previous.categoryId
+    const locationId = parseInt(formData.get('locationId') as string || '0') || previous.locationId
     
-    if (!categoryId || !locationId) {
-      throw new Error('Categoría y Ubicación son obligatorias')
-    }
-
-    const quantity = parseInt(formData.get('quantity') as string || '0') || 0
-    const minStock = parseInt(formData.get('minStock') as string || '0') || 0
-    const price = parseFloat(formData.get('price') as string || '0') || 0
-    const priceFleet = formData.get('priceFleet') ? (parseFloat(formData.get('priceFleet') as string) || null) : null
-    const cost = parseFloat(formData.get('cost') as string || '0') || 0
+    const quantity = formData.get('quantity') !== null ? (parseInt(formData.get('quantity') as string) || 0) : previous.quantity
+    const minStock = formData.get('minStock') !== null ? (parseInt(formData.get('minStock') as string) || 0) : previous.minStock
+    const price = formData.get('price') !== null ? (parseFloat(formData.get('price') as string) || 0) : previous.price
+    const priceFleet = formData.get('priceFleet') !== null ? (parseFloat(formData.get('priceFleet') as string) || null) : previous.priceFleet
+    const cost = formData.get('cost') !== null ? (parseFloat(formData.get('cost') as string) || 0) : previous.cost
 
     const updated = await db.part.update({
       where: { id },
       data: {
-        name: formData.get('name') as string,
+        name: (formData.get('name') as string) || previous.name,
         categoryId,
         locationId,
         quantity, minStock, price, priceFleet, cost,
@@ -840,31 +836,39 @@ export async function resetUserPassword(formData: FormData) {
 }
 
 export async function updateUserAccount(formData: FormData) {
-  await requireAdminUser()
-  const id = formData.get('id') as string
-  const username = (formData.get('username') as string)?.trim()
-  const name = (formData.get('name') as string)?.trim()
-  const email = (formData.get('email') as string)?.trim().toLowerCase()
-
-  if (!username || !name || !email) {
-    throw new Error('Todos los campos son obligatorios')
-  }
-
   try {
-    await db.user.update({
-      where: { id },
-      data: { username, name, email },
-    })
-  } catch {
-    await db.$executeRaw`
-      UPDATE users
-      SET username = ${username}, name = ${name}, email = ${email}, updatedAt = datetime('now')
-      WHERE id = ${id}
-    `
-  }
+    const session = await getServerSession(authOptions)
+    if (!session || !canManageUsers(session.user?.role)) {
+       throw new Error('No autorizado')
+    }
 
-  await logAudit('USER_UPDATED', 'USER', id, `Usuario ${username} actualizado`)
-  revalidatePath('/usuarios')
+    const id = formData.get('id') as string
+    const username = (formData.get('username') as string)?.trim()
+    const name = (formData.get('name') as string)?.trim()
+    const email = (formData.get('email') as string)?.trim().toLowerCase()
+
+    if (!id || !username || !name || !email) {
+      throw new Error('Todos los campos son obligatorios')
+    }
+
+    try {
+      await db.user.update({
+        where: { id },
+        data: { username, name, email },
+      })
+    } catch {
+      await db.$executeRaw`
+        UPDATE users
+        SET username = ${username}, name = ${name}, email = ${email}, updatedAt = datetime('now')
+        WHERE id = ${id}
+      `
+    }
+
+    await logAudit('USER_UPDATED', 'USER', id, `Usuario ${username} actualizado`)
+    revalidatePath('/usuarios')
+  } catch (error) {
+    console.error('Error updating user account:', error)
+  }
 }
 
 export async function deleteUser(formData: FormData) {
