@@ -146,35 +146,53 @@ export async function createPart(formData: FormData) {
 }
 
 export async function updatePart(formData: FormData) {
-  const id = parseInt(formData.get('id') as string || '0')
-  const previous = await db.part.findUnique({ where: { id }, select: { quantity: true, name: true } })
-  const quantity = parseInt(formData.get('quantity') as string || '0') || 0
-  const minStock = parseInt(formData.get('minStock') as string || '0') || 0
-  const price = parseFloat(formData.get('price') as string || '0') || 0
-  const priceFleet = formData.get('priceFleet') ? (parseFloat(formData.get('priceFleet') as string) || null) : null
-  const cost = parseFloat(formData.get('cost') as string || '0') || 0
+  try {
+    const id = parseInt(formData.get('id') as string || '0')
+    if (!id) throw new Error('ID de parte no válido')
 
-  const updated = await db.part.update({
-    where: { id },
-    data: {
-      name: formData.get('name') as string,
-      categoryId: parseInt(formData.get('categoryId') as string || '0'),
-      locationId: parseInt(formData.get('locationId') as string || '0'),
-      quantity, minStock, price, priceFleet, cost,
-      brand: (formData.get('brand') as string) || null,
-      sku: (formData.get('sku') as string) || null,
-      barcode: (formData.get('barcode') as string) || null,
-      oemNumber: (formData.get('oemNumber') as string) || null,
-      description: (formData.get('description') as string) || null,
-    },
-  })
-  if (previous && previous.quantity !== quantity) {
-    await logAudit('PART_QTY_CHANGED', 'PART', String(updated.id), `Parte ${updated.name}: ${previous.quantity} -> ${quantity}`)
-  } else {
-    await logAudit('PART_UPDATED', 'PART', String(updated.id), `Parte actualizada: ${updated.name}`)
+    const previous = await db.part.findUnique({ where: { id }, select: { quantity: true, name: true } })
+    if (!previous) throw new Error('Parte no encontrada')
+
+    const categoryId = parseInt(formData.get('categoryId') as string || '0')
+    const locationId = parseInt(formData.get('locationId') as string || '0')
+    
+    if (!categoryId || !locationId) {
+      throw new Error('Categoría y Ubicación son obligatorias')
+    }
+
+    const quantity = parseInt(formData.get('quantity') as string || '0') || 0
+    const minStock = parseInt(formData.get('minStock') as string || '0') || 0
+    const price = parseFloat(formData.get('price') as string || '0') || 0
+    const priceFleet = formData.get('priceFleet') ? (parseFloat(formData.get('priceFleet') as string) || null) : null
+    const cost = parseFloat(formData.get('cost') as string || '0') || 0
+
+    const updated = await db.part.update({
+      where: { id },
+      data: {
+        name: formData.get('name') as string,
+        categoryId,
+        locationId,
+        quantity, minStock, price, priceFleet, cost,
+        brand: (formData.get('brand') as string) || null,
+        sku: (formData.get('sku') as string) || null,
+        barcode: (formData.get('barcode') as string) || null,
+        oemNumber: (formData.get('oemNumber') as string) || null,
+        description: (formData.get('description') as string) || null,
+      },
+    })
+
+    if (previous.quantity !== quantity) {
+      await logAudit('PART_QTY_CHANGED', 'PART', String(updated.id), `Parte ${updated.name}: ${previous.quantity} -> ${quantity}`)
+    } else {
+      await logAudit('PART_UPDATED', 'PART', String(updated.id), `Parte actualizada: ${updated.name}`)
+    }
+
+    revalidatePath('/partes')
+    revalidatePath(`/partes/${id}`)
+  } catch (error) {
+    console.error('Error updating part:', error)
+    // Redireccionamos igual para refrescar, o podemos relanzar
   }
-  revalidatePath('/partes')
-  revalidatePath(`/partes/${id}`)
   redirect('/partes')
 }
 
