@@ -104,7 +104,7 @@ export default async function UsuariosPage() {
                     </form>
                   </td>
                   <td className="px-4 py-3">
-                    <form action={deleteUser} onAction={(formData) => confirm('¿Eliminar usuario definitivamente?') ? deleteUser(formData) : null}>
+                    <form action={deleteUser}>
                       <input type="hidden" name="id" value={u.id} />
                       <button type="submit" className="text-red-600 hover:text-red-800 text-xs font-bold">Eliminar</button>
                     </form>
