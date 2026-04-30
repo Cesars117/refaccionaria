@@ -1,4 +1,4 @@
-﻿'use server'
+'use server'
 
 import db from '@/lib/db'
 import { revalidatePath } from 'next/cache'
@@ -26,17 +26,21 @@ async function requireAdminUser() {
 }
 
 async function logAudit(action: string, entityType: string, entityId: string, details?: string) {
-  const actor = await getSessionUser()
-  await db.auditLog.create({
-    data: {
-      action,
-      entityType,
-      entityId,
-      userEmail: actor.email,
-      userName: actor.name,
-      details: details ?? null,
-    },
-  })
+  try {
+    const actor = await getSessionUser()
+    await db.auditLog.create({
+      data: {
+        action,
+        entityType,
+        entityId,
+        userEmail: actor.email,
+        userName: actor.name,
+        details: details ?? null,
+      },
+    })
+  } catch (error) {
+    console.error('Audit log failed:', error)
+  }
 }
 
 // ─── SEED DATA ────────────────────────────────────────────
@@ -732,23 +736,14 @@ export async function createUserAccount(formData: FormData) {
       },
       select: { id: true, username: true, email: true },
     })
-  } catch {
+  } catch (error) {
+    console.error('Prisma user creation failed, falling back to raw SQL:', error)
+    const newId = crypto.randomUUID()
     await db.$executeRaw`
-      INSERT INTO users (id, email, password, name, role, isActive, createdAt, updatedAt)
-      VALUES (${crypto.randomUUID()}, ${email}, ${hashedPassword}, ${name}, ${role}, 1, datetime('now'), datetime('now'))
+      INSERT INTO users (id, username, email, password, name, role, isActive, createdAt, updatedAt)
+      VALUES (${newId}, ${username}, ${email}, ${hashedPassword}, ${name}, ${role}, 1, datetime('now'), datetime('now'))
     `
-
-    const fallback = await db.user.findFirst({
-      where: { email },
-      orderBy: { createdAt: 'desc' },
-      select: { id: true, email: true },
-    })
-
-    if (!fallback) {
-      throw new Error('No se pudo crear el usuario')
-    }
-
-    created = { id: fallback.id, username: null, email: fallback.email }
+    created = { id: newId, username, email }
   }
 
   await logAudit('USER_CREATED', 'USER', created.id, `Usuario ${created.username ?? created.email} (${role})`)

@@ -105,7 +105,8 @@ export default function PartesPage() {
         />
       ) : (
         <div className="card overflow-hidden">
-          <table className="min-w-full divide-y divide-gray-200">
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
               <tr>
                 <th className="table-header px-6 py-3">Nombre / SKU</th>
@@ -161,6 +162,7 @@ export default function PartesPage() {
             </tbody>
           </table>
         </div>
+      </div>
       )}
     </div>
   );
