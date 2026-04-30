@@ -102,15 +102,21 @@ export async function getParts(query?: string, filterLow?: boolean) {
 }
 
 export async function getPartById(id: number) {
-  return db.part.findUnique({
-    where: { id },
-    include: {
-      category: true,
-      location: true,
-      fitment: { include: { vehicleModel: true } },
-      supplierParts: { include: { supplier: true } },
-    },
-  })
+  if (isNaN(id) || !id) return null
+  try {
+    return await db.part.findUnique({
+      where: { id },
+      include: {
+        category: true,
+        location: true,
+        fitment: { include: { vehicleModel: true } },
+        supplierParts: { include: { supplier: true } },
+      },
+    })
+  } catch (error) {
+    console.error('Error fetching part by ID:', error)
+    return null
+  }
 }
 
 export async function createPart(formData: FormData) {
@@ -722,46 +728,52 @@ export async function getUsers() {
 }
 
 export async function createUserAccount(formData: FormData) {
-  await requireAdminUser()
-
-  const username = (formData.get('username') as string | null)?.trim()
-  const name = (formData.get('name') as string | null)?.trim()
-  const email = (formData.get('email') as string | null)?.trim().toLowerCase()
-  const password = formData.get('password') as string
-  const role = normalizeRole(formData.get('role') as string)
-
-  if (!username || !name || !email || !password) {
-    throw new Error('Todos los campos son obligatorios')
-  }
-
-  const hashedPassword = await bcrypt.hash(password, 12)
-
-  let created: { id: string; username: string | null; email: string }
-
   try {
-    created = await db.user.create({
-      data: {
-        username,
-        name,
-        email,
-        password: hashedPassword,
-        role,
-        isActive: true,
-      },
-      select: { id: true, username: true, email: true },
-    })
-  } catch (error) {
-    console.error('Prisma user creation failed, falling back to raw SQL:', error)
-    const newId = crypto.randomUUID()
-    await db.$executeRaw`
-      INSERT INTO users (id, username, email, password, name, role, isActive, createdAt, updatedAt)
-      VALUES (${newId}, ${username}, ${email}, ${hashedPassword}, ${name}, ${role}, 1, datetime('now'), datetime('now'))
-    `
-    created = { id: newId, username, email }
-  }
+    const session = await getServerSession(authOptions)
+    if (!session || !canManageUsers(session.user?.role)) {
+       throw new Error('No autorizado')
+    }
 
-  await logAudit('USER_CREATED', 'USER', created.id, `Usuario ${created.username ?? created.email} (${role})`)
-  revalidatePath('/usuarios')
+    const username = (formData.get('username') as string)?.trim()
+    const name = (formData.get('name') as string)?.trim()
+    const email = (formData.get('email') as string)?.trim().toLowerCase()
+    const password = formData.get('password') as string
+    const role = (formData.get('role') as string) || ROLES.TRABAJADOR
+
+    if (!username || !email || !password || !name) {
+      throw new Error('Todos los campos son obligatorios')
+    }
+
+    const hashedPassword = await bcrypt.hash(password, 12)
+    let createdId: string
+
+    try {
+      const created = await db.user.create({
+        data: {
+          username,
+          name,
+          email,
+          password: hashedPassword,
+          role,
+          isActive: true,
+        },
+      })
+      createdId = created.id
+    } catch (error) {
+      console.error('Prisma user creation failed, falling back to raw SQL:', error)
+      createdId = crypto.randomUUID()
+      await db.$executeRaw`
+        INSERT INTO users (id, username, email, password, name, role, isActive, createdAt, updatedAt)
+        VALUES (${createdId}, ${username}, ${email}, ${hashedPassword}, ${name}, ${role}, 1, datetime('now'), datetime('now'))
+      `
+    }
+
+    await logAudit('USER_CREATED', 'USER', createdId, `Usuario ${username} creado`)
+    revalidatePath('/usuarios')
+  } catch (error: any) {
+    console.error('Error in createUserAccount:', error)
+    throw new Error(error.message || 'Error al crear usuario')
+  }
 }
 
 export async function updateUserRole(formData: FormData) {
