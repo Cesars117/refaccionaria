@@ -6,6 +6,8 @@ import {
   resetUserPassword,
   updateUserRole,
   updateUserStatus,
+  updateUserAccount,
+  deleteUser,
 } from '@/app/actions'
 import { authOptions } from '@/lib/auth'
 import { canManageUsers, ROLES } from '@/lib/rbac'
@@ -52,48 +54,59 @@ export default async function UsuariosPage() {
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
               <tr>
-                <th className="table-header px-4 py-3">Usuario</th>
-                <th className="table-header px-4 py-3">Nombre</th>
-                <th className="table-header px-4 py-3">Correo</th>
+                <th className="table-header px-4 py-3">Datos (Usuario/Nombre/Email)</th>
                 <th className="table-header px-4 py-3">Rol</th>
                 <th className="table-header px-4 py-3">Estado</th>
                 <th className="table-header px-4 py-3">Contraseña</th>
+                <th className="table-header px-4 py-3">Eliminar</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100 bg-white">
               {users.map((u) => (
                 <tr key={u.id}>
-                  <td className="px-4 py-3 text-sm font-semibold text-gray-900">{u.username ?? '—'}</td>
-                  <td className="px-4 py-3 text-sm text-gray-700">{u.name}</td>
-                  <td className="px-4 py-3 text-sm text-gray-700">{u.email}</td>
                   <td className="px-4 py-3">
-                    <form action={updateUserRole} className="flex items-center gap-2">
+                    <form action={updateUserAccount} className="space-y-1">
                       <input type="hidden" name="id" value={u.id} />
-                      <select name="role" defaultValue={u.role} className="input-field h-9 py-1 px-2 text-xs">
+                      <input name="username" defaultValue={u.username ?? ''} className="input-field h-8 py-1 px-2 text-xs" placeholder="Usuario" />
+                      <input name="name" defaultValue={u.name} className="input-field h-8 py-1 px-2 text-xs" placeholder="Nombre" />
+                      <input name="email" defaultValue={u.email} className="input-field h-8 py-1 px-2 text-xs" placeholder="Email" />
+                      <button type="submit" className="text-[10px] text-brand-600 hover:underline font-bold">Guardar Cambios</button>
+                    </form>
+                  </td>
+                  <td className="px-4 py-3">
+                    <form action={updateUserRole} className="flex flex-col gap-1">
+                      <input type="hidden" name="id" value={u.id} />
+                      <select name="role" defaultValue={u.role} className="input-field h-8 py-1 px-2 text-xs">
                         <option value={ROLES.SUPER_ADMIN}>Super Admin</option>
                         <option value={ROLES.ADMIN}>Admin</option>
                         <option value={ROLES.TRABAJADOR}>Trabajador</option>
                       </select>
-                      <button className="btn-secondary text-xs h-9" type="submit">Guardar</button>
+                      <button className="text-[10px] text-brand-600 hover:underline font-bold text-left" type="submit">Actualizar Rol</button>
                     </form>
                   </td>
                   <td className="px-4 py-3">
-                    <form action={updateUserStatus} className="flex items-center gap-2">
+                    <form action={updateUserStatus} className="flex flex-col gap-1">
                       <input type="hidden" name="id" value={u.id} />
                       <input type="hidden" name="isActive" value={String(!u.isActive)} />
-                      <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${u.isActive ? 'bg-green-100 text-green-700' : 'bg-gray-200 text-gray-700'}`}>
+                      <span className={`inline-flex self-start rounded-full px-2 py-0.5 text-[10px] font-medium ${u.isActive ? 'bg-green-100 text-green-700' : 'bg-gray-200 text-gray-700'}`}>
                         {u.isActive ? 'Activo' : 'Inactivo'}
                       </span>
-                      <button type="submit" className="btn-secondary text-xs h-9">
+                      <button type="submit" className="text-[10px] text-gray-600 hover:underline font-bold text-left">
                         {u.isActive ? 'Desactivar' : 'Activar'}
                       </button>
                     </form>
                   </td>
                   <td className="px-4 py-3">
-                    <form action={resetUserPassword} className="flex items-center gap-2">
+                    <form action={resetUserPassword} className="flex flex-col gap-1">
                       <input type="hidden" name="id" value={u.id} />
-                      <input name="password" type="password" minLength={8} required placeholder="Nueva contraseña" className="input-field h-9 py-1 px-2 text-xs" />
-                      <button type="submit" className="btn-secondary text-xs h-9">Actualizar</button>
+                      <input name="password" type="password" minLength={8} required placeholder="Nueva clave" className="input-field h-8 py-1 px-2 text-xs" />
+                      <button type="submit" className="text-[10px] text-brand-600 hover:underline font-bold text-left">Reset Clave</button>
+                    </form>
+                  </td>
+                  <td className="px-4 py-3">
+                    <form action={deleteUser} onAction={(formData) => confirm('¿Eliminar usuario definitivamente?') ? deleteUser(formData) : null}>
+                      <input type="hidden" name="id" value={u.id} />
+                      <button type="submit" className="text-red-600 hover:text-red-800 text-xs font-bold">Eliminar</button>
                     </form>
                   </td>
                 </tr>
