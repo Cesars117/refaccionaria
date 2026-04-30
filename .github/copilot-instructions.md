@@ -5,7 +5,7 @@ Quick, focused guidance for AI coding agents working in this repository. Keep ed
 ## Project at-a-glance
 - Next.js (app dir) app using Next 16+ features. Main server entry: `app/page.tsx` and routes under `app/`.
 - PostgreSQL + Prisma for data layer. Prisma schema: `prisma/schema.prisma`.
-- Production output configured as `standalone` via `next.config.ts` and `deploy.ps1` (Hostinger deployment). README also mentions Vercel.
+- Production output configured as `standalone` via `next.config.ts` (Vercel deployment). README also mentions Vercel.
 
 ## Important files to read before changing code
 - UI & server actions: `app/actions.ts`, `app/page.tsx`, `app/items/new/page.tsx`

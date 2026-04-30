@@ -57,46 +57,48 @@ export default async function CotizacionesPage() {
         </div>
       ) : (
         <div className="card overflow-hidden">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="table-header px-6 py-3">Cotización</th>
-                <th className="table-header px-4 py-3">Cliente</th>
-                <th className="table-header px-4 py-3">Vehículo</th>
-                <th className="table-header px-4 py-3">Partidas</th>
-                <th className="table-header px-4 py-3 text-right">Total</th>
-                <th className="table-header px-4 py-3">Estado</th>
-                <th className="px-4 py-3" />
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-100 bg-white">
-              {quotes.map((q) => {
-                const sc = STATUS[q.status] ?? { label: q.status, class: 'bg-gray-100 text-gray-600' };
-                return (
-                  <tr key={q.id} className="hover:bg-gray-50">
-                    <td className="px-6 py-3">
-                      <p className="text-sm font-medium text-gray-900">{q.quoteNumber}</p>
-                      <p className="text-xs text-gray-400">{new Date(q.createdAt).toLocaleDateString('es-MX')}</p>
-                    </td>
-                    <td className="px-4 py-3 text-sm text-gray-700">{q.customer.name}</td>
-                    <td className="px-4 py-3 text-sm text-gray-600">{q.vehicleRef ?? '—'}</td>
-                    <td className="px-4 py-3 text-sm text-gray-600">{q._count.items}</td>
-                    <td className="px-4 py-3 text-right text-sm font-semibold text-gray-900">{allowRevenue ? formatCurrency(q.total) : 'Oculto'}</td>
-                    <td className="px-4 py-3">
-                      <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${sc.class}`}>
-                        {sc.label}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3 text-right">
-                      <Link href={`/cotizaciones/${q.id}`} className="text-sm text-brand-600 hover:text-brand-800 font-medium inline-flex items-center gap-1">
-                        Ver <ArrowRight className="h-3 w-3" />
-                      </Link>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="table-header px-6 py-3">Cotización</th>
+                  <th className="table-header px-4 py-3">Cliente</th>
+                  <th className="table-header px-4 py-3">Vehículo</th>
+                  <th className="table-header px-4 py-3">Partidas</th>
+                  <th className="table-header px-4 py-3 text-right">Total</th>
+                  <th className="table-header px-4 py-3">Estado</th>
+                  <th className="px-4 py-3" />
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100 bg-white">
+                {quotes.map((q) => {
+                  const sc = STATUS[q.status] ?? { label: q.status, class: 'bg-gray-100 text-gray-600' };
+                  return (
+                    <tr key={q.id} className="hover:bg-gray-50">
+                      <td className="px-6 py-3">
+                        <p className="text-sm font-medium text-gray-900">{q.quoteNumber}</p>
+                        <p className="text-xs text-gray-400">{new Date(q.createdAt).toLocaleDateString('es-MX')}</p>
+                      </td>
+                      <td className="px-4 py-3 text-sm text-gray-700">{q.customer.name}</td>
+                      <td className="px-4 py-3 text-sm text-gray-600">{q.vehicleRef ?? '—'}</td>
+                      <td className="px-4 py-3 text-sm text-gray-600">{q._count.items}</td>
+                      <td className="px-4 py-3 text-right text-sm font-semibold text-gray-900">{allowRevenue ? formatCurrency(q.total) : 'Oculto'}</td>
+                      <td className="px-4 py-3">
+                        <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${sc.class}`}>
+                          {sc.label}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 text-right">
+                        <Link href={`/cotizaciones/${q.id}`} className="text-sm text-brand-600 hover:text-brand-800 font-medium inline-flex items-center gap-1">
+                          Ver <ArrowRight className="h-3 w-3" />
+                        </Link>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
     </div>

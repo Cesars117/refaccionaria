@@ -1,4 +1,6 @@
+export const dynamic = 'force-dynamic';
 import { getCategories, getLocations } from '@/app/actions';
+
 import NuevaParteForm from './NuevaParteForm';
 
 export default async function NuevaPartePage() {

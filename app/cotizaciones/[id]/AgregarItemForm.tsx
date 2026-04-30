@@ -59,8 +59,13 @@ export default function AgregarItemForm({ quoteId }: { quoteId: string }) {
             {results.map((p) => (
               <li key={p.id}>
                 <button type="button" onClick={() => selectPart(p)} className="w-full text-left px-4 py-2 hover:bg-gray-50 text-sm">
-                  <span className="font-medium">{p.name}</span>
-                  {p.sku && <span className="ml-2 text-xs text-gray-400">SKU: {p.sku}</span>}
+                  <div className="flex justify-between items-center">
+                    <span className="font-medium text-gray-900">{p.name}</span>
+                    <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${p.quantity > 0 ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'}`}>
+                      Stock: {p.quantity}
+                    </span>
+                  </div>
+                  {p.sku && <span className="text-xs text-gray-400">SKU: {p.sku}</span>}
                 </button>
               </li>
             ))}
