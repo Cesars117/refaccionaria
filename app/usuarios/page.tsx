@@ -64,7 +64,7 @@ export default async function UsuariosPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100 bg-white">
-              {users.map((u) => (
+              {JSON.parse(JSON.stringify(users)).map((u: any) => (
                 <UserRow key={u.id} u={u} />
               ))}
             </tbody>

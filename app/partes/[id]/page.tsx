@@ -56,7 +56,11 @@ export default async function ParteDetailPage({ params }: { params: Promise<{ id
         <h2 className="text-base font-semibold text-gray-900 mb-4 flex items-center gap-2">
           <Edit className="h-4 w-4" /> Editar parte
         </h2>
-        <EditParteForm part={part as any} categories={categories} locations={locations as any} />
+        <EditParteForm 
+          part={JSON.parse(JSON.stringify(part))} 
+          categories={JSON.parse(JSON.stringify(categories))} 
+          locations={JSON.parse(JSON.stringify(locations))} 
+        />
       </div>
 
       {/* Danger zone */}
