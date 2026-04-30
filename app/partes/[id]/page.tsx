@@ -42,8 +42,8 @@ export default async function ParteDetailPage({ params }: { params: Promise<{ id
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-5 mb-5">
         {/* Quick stats */}
         {[
-          { label: 'Stock',        value: `${part.quantity} uds.`, highlight: isLowStock },
-          { label: 'Precio',       value: formatCurrency(part.price), highlight: false },
+          { label: 'Stock',        value: `${part.quantity ?? 0} uds.`, highlight: isLowStock },
+          { label: 'Precio',       value: formatCurrency(part.price ?? 0), highlight: false },
           { label: 'Precio flota', value: part.priceFleet ? formatCurrency(part.priceFleet) : '—', highlight: false },
         ].map((s) => (
           <div key={s.label} className={`card p-4 text-center ${s.highlight ? 'border-red-200' : ''}`}>
@@ -58,7 +58,11 @@ export default async function ParteDetailPage({ params }: { params: Promise<{ id
         <h2 className="text-base font-semibold text-gray-900 mb-4 flex items-center gap-2">
           <Edit className="h-4 w-4" /> Editar parte
         </h2>
-        <EditParteForm part={part as any} categories={categories} locations={locations as any} />
+        <EditParteForm 
+          part={JSON.parse(JSON.stringify(part))} 
+          categories={categories} 
+          locations={locations} 
+        />
       </div>
 
       {/* Danger zone */}
