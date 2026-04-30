@@ -8,13 +8,23 @@ import EditParteForm from './EditParteForm';
 export const dynamic = 'force-dynamic';
 
 export default async function ParteDetailPage({ params }: { params: Promise<{ id: string }> }) {
-  const { id } = await params;
+  const { id: idStr } = await params;
+  const id = parseInt(idStr);
+  
+  if (isNaN(id)) notFound();
+
   const [part, categories, locations] = await Promise.all([
-    getPartById(parseInt(id)),
+    getPartById(id),
     getCategories(),
     getLocations(),
   ]);
+
   if (!part) notFound();
+
+  // Serializar todo para el Client Component
+  const serializedPart = JSON.parse(JSON.stringify(part));
+  const serializedCategories = JSON.parse(JSON.stringify(categories));
+  const serializedLocations = JSON.parse(JSON.stringify(locations));
 
   const isLowStock = part.quantity <= part.minStock;
 
@@ -59,9 +69,9 @@ export default async function ParteDetailPage({ params }: { params: Promise<{ id
           <Edit className="h-4 w-4" /> Editar parte
         </h2>
         <EditParteForm 
-          part={JSON.parse(JSON.stringify(part))} 
-          categories={categories} 
-          locations={locations} 
+          part={serializedPart} 
+          categories={serializedCategories} 
+          locations={serializedLocations} 
         />
       </div>
 
