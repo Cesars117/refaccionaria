@@ -1,16 +1,10 @@
-import { FlatCompat } from "@eslint/eslintrc";
-import path from "node:path";
-import { fileURLToPath } from "node:url";
+import { defineConfig, globalIgnores } from "eslint/config";
+import nextVitals from "eslint-config-next/core-web-vitals";
+import nextTs from "eslint-config-next/typescript";
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
-const compat = new FlatCompat({
-  baseDirectory: __dirname,
-});
-
-const eslintConfig = [
-  ...compat.extends("next/core-web-vitals", "next/typescript"),
+const eslintConfig = defineConfig([
+  ...nextVitals,
+  ...nextTs,
   {
     rules: {
       "@typescript-eslint/no-explicit-any": "off",
@@ -20,26 +14,28 @@ const eslintConfig = [
       "react-hooks/exhaustive-deps": "off",
     }
   },
-  {
-    ignores: [
-      ".next/**",
-      "out/**",
-      "build/**",
-      "next-env.d.ts",
-      "add-data.*",
-      "seed-simple.*",
-      "prisma-helper.ps1",
-      "backups/**",
-      "dist-tablet/**",
-      "scripts/**",
-      "*.backup.js",
-      "check-*.js",
-      "quick-entry.js",
-      "restore-*.js",
-      "temp-*.js",
-    ]
-  }
-];
+  // Override default ignores of eslint-config-next.
+  globalIgnores([
+    // Default ignores of eslint-config-next:
+    ".next/**",
+    "out/**",
+    "build/**",
+    "next-env.d.ts",
+    // Custom ignores for data scripts:
+    "add-data.*",
+    "seed-simple.*",
+    "prisma-helper.ps1",
+    // Backup and temporary files:
+    "backups/**",
+    "dist-tablet/**",
+    "scripts/**",
+    "*.backup.js",
+    "check-*.js",
+    "quick-entry.js",
+    "restore-*.js",
+    "temp-*.js",
+  ]),
+]);
 
 
 export default eslintConfig;

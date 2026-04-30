@@ -102,38 +102,32 @@ export async function getParts(query?: string, filterLow?: boolean) {
 }
 
 export async function getPartById(id: number) {
-  if (isNaN(id) || !id) return null
-  try {
-    return await db.part.findUnique({
-      where: { id },
-      include: {
-        category: true,
-        location: true,
-        fitment: { include: { vehicleModel: true } },
-        supplierParts: { include: { supplier: true } },
-      },
-    })
-  } catch (error) {
-    console.error('Error fetching part by ID:', error)
-    return null
-  }
+  return db.part.findUnique({
+    where: { id },
+    include: {
+      category: true,
+      location: true,
+      fitment: { include: { vehicleModel: true } },
+      supplierParts: { include: { supplier: true } },
+    },
+  })
 }
 
 export async function createPart(formData: FormData) {
   const name = formData.get('name') as string
-  const categoryId = parseInt(formData.get('categoryId') as string || '0')
-  const locationId = parseInt(formData.get('locationId') as string || '0')
-  const quantity = parseInt(formData.get('quantity') as string || '0') || 0
-  const minStock = parseInt(formData.get('minStock') as string || '0') || 0
-  const price = parseFloat(formData.get('price') as string || '0') || 0
-  const priceFleet = formData.get('priceFleet') ? (parseFloat(formData.get('priceFleet') as string) || null) : null
-  const cost = parseFloat(formData.get('cost') as string || '0') || 0
+  const categoryId = parseInt(formData.get('categoryId') as string)
+  const locationId = parseInt(formData.get('locationId') as string)
+  const quantity = parseInt(formData.get('quantity') as string || '0')
+  const minStock = parseInt(formData.get('minStock') as string || '0')
+  const price = parseFloat(formData.get('price') as string || '0')
+  const priceFleet = formData.get('priceFleet') ? parseFloat(formData.get('priceFleet') as string) : null
+  const cost = parseFloat(formData.get('cost') as string || '0')
 
   const created = await db.part.create({
     data: {
       name,
-      categoryId: parseInt(formData.get('categoryId') as string || '0'),
-      locationId: parseInt(formData.get('locationId') as string || '0'),
+      categoryId,
+      locationId,
       quantity,
       minStock,
       price,
@@ -152,49 +146,35 @@ export async function createPart(formData: FormData) {
 }
 
 export async function updatePart(formData: FormData) {
-  try {
-    const id = parseInt(formData.get('id') as string || '0')
-    if (!id) throw new Error('ID de parte no válido')
+  const id = parseInt(formData.get('id') as string)
+  const previous = await db.part.findUnique({ where: { id }, select: { quantity: true, name: true } })
+  const quantity = parseInt(formData.get('quantity') as string || '0')
+  const minStock = parseInt(formData.get('minStock') as string || '0')
+  const price = parseFloat(formData.get('price') as string || '0')
+  const priceFleet = formData.get('priceFleet') ? parseFloat(formData.get('priceFleet') as string) : null
+  const cost = parseFloat(formData.get('cost') as string || '0')
 
-    const previous = await db.part.findUnique({ where: { id }, select: { quantity: true, name: true } })
-    if (!previous) throw new Error('Parte no encontrada')
-
-    const categoryId = parseInt(formData.get('categoryId') as string || '0') || previous.categoryId
-    const locationId = parseInt(formData.get('locationId') as string || '0') || previous.locationId
-    
-    const quantity = formData.get('quantity') !== null ? (parseInt(formData.get('quantity') as string) || 0) : previous.quantity
-    const minStock = formData.get('minStock') !== null ? (parseInt(formData.get('minStock') as string) || 0) : previous.minStock
-    const price = formData.get('price') !== null ? (parseFloat(formData.get('price') as string) || 0) : previous.price
-    const priceFleet = formData.get('priceFleet') !== null ? (parseFloat(formData.get('priceFleet') as string) || null) : previous.priceFleet
-    const cost = formData.get('cost') !== null ? (parseFloat(formData.get('cost') as string) || 0) : previous.cost
-
-    const updated = await db.part.update({
-      where: { id },
-      data: {
-        name: (formData.get('name') as string) || previous.name,
-        categoryId,
-        locationId,
-        quantity, minStock, price, priceFleet, cost,
-        brand: (formData.get('brand') as string) || null,
-        sku: (formData.get('sku') as string) || null,
-        barcode: (formData.get('barcode') as string) || null,
-        oemNumber: (formData.get('oemNumber') as string) || null,
-        description: (formData.get('description') as string) || null,
-      },
-    })
-
-    if (previous.quantity !== quantity) {
-      await logAudit('PART_QTY_CHANGED', 'PART', String(updated.id), `Parte ${updated.name}: ${previous.quantity} -> ${quantity}`)
-    } else {
-      await logAudit('PART_UPDATED', 'PART', String(updated.id), `Parte actualizada: ${updated.name}`)
-    }
-
-    revalidatePath('/partes')
-    revalidatePath(`/partes/${id}`)
-  } catch (error) {
-    console.error('Error updating part:', error)
-    // Redireccionamos igual para refrescar, o podemos relanzar
+  const updated = await db.part.update({
+    where: { id },
+    data: {
+      name: formData.get('name') as string,
+      categoryId: parseInt(formData.get('categoryId') as string),
+      locationId: parseInt(formData.get('locationId') as string),
+      quantity, minStock, price, priceFleet, cost,
+      brand: (formData.get('brand') as string) || null,
+      sku: (formData.get('sku') as string) || null,
+      barcode: (formData.get('barcode') as string) || null,
+      oemNumber: (formData.get('oemNumber') as string) || null,
+      description: (formData.get('description') as string) || null,
+    },
+  })
+  if (previous && previous.quantity !== quantity) {
+    await logAudit('PART_QTY_CHANGED', 'PART', String(updated.id), `Parte ${updated.name}: ${previous.quantity} -> ${quantity}`)
+  } else {
+    await logAudit('PART_UPDATED', 'PART', String(updated.id), `Parte actualizada: ${updated.name}`)
   }
+  revalidatePath('/partes')
+  revalidatePath(`/partes/${id}`)
   redirect('/partes')
 }
 
@@ -728,52 +708,46 @@ export async function getUsers() {
 }
 
 export async function createUserAccount(formData: FormData) {
-  try {
-    const session = await getServerSession(authOptions)
-    if (!session || !canManageUsers(session.user?.role)) {
-       throw new Error('No autorizado')
-    }
+  await requireAdminUser()
 
-    const username = (formData.get('username') as string)?.trim()
-    const name = (formData.get('name') as string)?.trim()
-    const email = (formData.get('email') as string)?.trim().toLowerCase()
-    const password = formData.get('password') as string
-    const role = (formData.get('role') as string) || ROLES.TRABAJADOR
+  const username = (formData.get('username') as string | null)?.trim()
+  const name = (formData.get('name') as string | null)?.trim()
+  const email = (formData.get('email') as string | null)?.trim().toLowerCase()
+  const password = formData.get('password') as string
+  const role = normalizeRole(formData.get('role') as string)
 
-    if (!username || !email || !password || !name) {
-      throw new Error('Todos los campos son obligatorios')
-    }
-
-    const hashedPassword = await bcrypt.hash(password, 12)
-    let createdId: string
-
-    try {
-      const created = await db.user.create({
-        data: {
-          username,
-          name,
-          email,
-          password: hashedPassword,
-          role,
-          isActive: true,
-        },
-      })
-      createdId = created.id
-    } catch (error) {
-      console.error('Prisma user creation failed, falling back to raw SQL:', error)
-      createdId = crypto.randomUUID()
-      await db.$executeRaw`
-        INSERT INTO users (id, username, email, password, name, role, isActive, createdAt, updatedAt)
-        VALUES (${createdId}, ${username}, ${email}, ${hashedPassword}, ${name}, ${role}, 1, datetime('now'), datetime('now'))
-      `
-    }
-
-    await logAudit('USER_CREATED', 'USER', createdId, `Usuario ${username} creado`)
-    revalidatePath('/usuarios')
-  } catch (error: any) {
-    console.error('Error in createUserAccount:', error)
-    throw new Error(error.message || 'Error al crear usuario')
+  if (!username || !name || !email || !password) {
+    throw new Error('Todos los campos son obligatorios')
   }
+
+  const hashedPassword = await bcrypt.hash(password, 12)
+
+  let created: { id: string; username: string | null; email: string }
+
+  try {
+    created = await db.user.create({
+      data: {
+        username,
+        name,
+        email,
+        password: hashedPassword,
+        role,
+        isActive: true,
+      },
+      select: { id: true, username: true, email: true },
+    })
+  } catch (error) {
+    console.error('Prisma user creation failed, falling back to raw SQL:', error)
+    const newId = crypto.randomUUID()
+    await db.$executeRaw`
+      INSERT INTO users (id, username, email, password, name, role, isActive, createdAt, updatedAt)
+      VALUES (${newId}, ${username}, ${email}, ${hashedPassword}, ${name}, ${role}, 1, datetime('now'), datetime('now'))
+    `
+    created = { id: newId, username, email }
+  }
+
+  await logAudit('USER_CREATED', 'USER', created.id, `Usuario ${created.username ?? created.email} (${role})`)
+  revalidatePath('/usuarios')
 }
 
 export async function updateUserRole(formData: FormData) {
@@ -844,62 +818,6 @@ export async function resetUserPassword(formData: FormData) {
   }
 
   await logAudit('USER_PASSWORD_RESET', 'USER', id, 'Contraseña restablecida por super admin')
-  revalidatePath('/usuarios')
-}
-
-export async function updateUserAccount(formData: FormData) {
-  try {
-    const session = await getServerSession(authOptions)
-    if (!session || !canManageUsers(session.user?.role)) {
-       throw new Error('No autorizado')
-    }
-
-    const id = formData.get('id') as string
-    const username = (formData.get('username') as string)?.trim()
-    const name = (formData.get('name') as string)?.trim()
-    const email = (formData.get('email') as string)?.trim().toLowerCase()
-
-    if (!id || !username || !name || !email) {
-      throw new Error('Todos los campos son obligatorios')
-    }
-
-    try {
-      await db.user.update({
-        where: { id },
-        data: { username, name, email },
-      })
-    } catch {
-      await db.$executeRaw`
-        UPDATE users
-        SET username = ${username}, name = ${name}, email = ${email}, updatedAt = datetime('now')
-        WHERE id = ${id}
-      `
-    }
-
-    await logAudit('USER_UPDATED', 'USER', id, `Usuario ${username} actualizado`)
-    revalidatePath('/usuarios')
-  } catch (error: any) {
-    console.error('Error updating user account:', error)
-    throw new Error(`Error al guardar cambios: ${error.message || 'Error desconocido'}`)
-  }
-}
-
-export async function deleteUser(formData: FormData) {
-  await requireAdminUser()
-  const id = formData.get('id') as string
-  const session = await getServerSession(authOptions)
-  
-  const existing = await db.user.findUnique({ where: { id }, select: { username: true, email: true } })
-  if (!existing) throw new Error('Usuario no encontrado')
-
-  // Evitar auto-borrado
-  if (session?.user?.email === existing.email || session?.user?.name === existing.username) {
-     throw new Error('No puedes eliminar tu propio usuario')
-  }
-
-  await db.user.delete({ where: { id } })
-  
-  await logAudit('USER_DELETED', 'USER', id, `Usuario eliminado: ${existing.username ?? existing.email}`)
   revalidatePath('/usuarios')
 }
 
