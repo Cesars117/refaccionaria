@@ -27,7 +27,9 @@ export default async function ParteDetailPage({ params }: { params: Promise<{ id
           </Link>
           <div>
             <h1 className="text-2xl font-bold text-gray-900">{part.name}</h1>
-            <p className="text-sm text-gray-500">{part.category.name} · {part.location.name}</p>
+            <p className="text-sm text-gray-500">
+              {part.category?.name ?? 'Sin categoría'} · {part.location?.name ?? 'Sin ubicación'}
+            </p>
           </div>
         </div>
         {isLowStock && (

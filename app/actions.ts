@@ -158,8 +158,8 @@ export async function updatePart(formData: FormData) {
     where: { id },
     data: {
       name: formData.get('name') as string,
-      categoryId: parseInt(formData.get('categoryId') as string),
-      locationId: parseInt(formData.get('locationId') as string),
+      categoryId: parseInt(formData.get('categoryId') as string) || 0,
+      locationId: parseInt(formData.get('locationId') as string) || 0,
       quantity, minStock, price, priceFleet, cost,
       brand: (formData.get('brand') as string) || null,
       sku: (formData.get('sku') as string) || null,
