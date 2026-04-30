@@ -866,8 +866,9 @@ export async function updateUserAccount(formData: FormData) {
 
     await logAudit('USER_UPDATED', 'USER', id, `Usuario ${username} actualizado`)
     revalidatePath('/usuarios')
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error updating user account:', error)
+    throw new Error(`Error al guardar cambios: ${error.message || 'Error desconocido'}`)
   }
 }
 
