@@ -166,51 +166,34 @@ export async function createPart(formData: FormData) {
 
 export async function updatePart(formData: FormData) {
   try {
-    await ensureSchemaRepair()
     const id = parseInt(formData.get('id') as string)
-    if (isNaN(id)) return { error: 'ID inválido' }
-
     const name = formData.get('name') as string
-    const categoryId = parseInt(formData.get('categoryId') as string) || null
-    const locationId = parseInt(formData.get('locationId') as string) || null
+    const categoryId = parseInt(formData.get('categoryId') as string) || 1
+    const locationId = parseInt(formData.get('locationId') as string) || 1
     const quantity = parseInt(formData.get('quantity') as string || '0')
     const minStock = parseInt(formData.get('minStock') as string || '0')
     const price = parseFloat(formData.get('price') as string || '0')
-    const priceFleet = formData.get('priceFleet') ? parseFloat(formData.get('priceFleet') as string) : null
     const cost = parseFloat(formData.get('cost') as string || '0')
-    const brand = (formData.get('brand') as string) || null
-    const sku = (formData.get('sku') as string) || null
-    const barcode = (formData.get('barcode') as string) || null
-    const oemNumber = (formData.get('oemNumber') as string) || null
-    const description = (formData.get('description') as string) || null
+    const brand = (formData.get('brand') as string) || ''
+    const sku = (formData.get('sku') as string) || ''
+    const oemNumber = (formData.get('oemNumber') as string) || ''
+    const description = (formData.get('description') as string) || ''
 
-    try {
-      await db.part.update({
-        where: { id },
-        data: {
-          name, 
-          category: categoryId ? { connect: { id: categoryId } } : undefined,
-          location: locationId ? { connect: { id: locationId } } : undefined,
-          quantity, minStock, price, priceFleet, cost,
-          brand, sku, barcode, oemNumber, description,
-        },
-      })
-    } catch (prismaError) {
-      console.error('Prisma update failed, trying raw SQL:', prismaError)
-      await db.$executeRaw`
-        UPDATE parts 
-        SET name=${name}, categoryId=${categoryId || 1}, locationId=${locationId || 1}, 
-            quantity=${quantity}, minStock=${minStock}, price=${price}, 
-            cost=${cost}, updatedAt=datetime('now')
-        WHERE id=${id}
-      `
-    }
-  } catch (globalError) {
-    console.error('Global error in updatePart:', globalError)
-    // No throw
+    // Bypass Prisma COMPLETELY for the update
+    await db.$executeRaw`
+      UPDATE parts 
+      SET name=${name}, categoryId=${categoryId}, locationId=${locationId}, 
+          quantity=${quantity}, minStock=${minStock}, price=${price}, 
+          cost=${cost}, brand=${brand}, sku=${sku}, oemNumber=${oemNumber}, 
+          description=${description}, updatedAt=datetime('now')
+      WHERE id=${id}
+    `
+    revalidatePath('/partes')
+    return { success: true }
+  } catch (err) {
+    console.error('CRITICAL UPDATE ERROR:', err)
+    return { success: false, error: String(err) }
   }
-  revalidatePath('/partes')
-  redirect('/partes')
 }
 
 export async function deletePart(formData: FormData) {
@@ -283,18 +266,19 @@ export async function getLocations() {
 
 export async function createLocation(formData: FormData) {
   try {
-    await db.location.create({
-      data: {
-        name: formData.get('name') as string,
-        type: (formData.get('type') as string) || 'WAREHOUSE',
-        description: (formData.get('description') as string) || null,
-      },
-    })
+    const name = formData.get('name') as string
+    const type = (formData.get('type') as string) || 'WAREHOUSE'
+    const description = (formData.get('description') as string) || ''
+    
+    await db.$executeRaw`
+      INSERT INTO locations (name, type, description, createdAt, updatedAt)
+      VALUES (${name}, ${type}, ${description}, datetime('now'), datetime('now'))
+    `
     revalidatePath('/ubicaciones')
+    return { success: true }
   } catch (error) {
-    console.error('Error creating location:', error)
-    // No throw here, just return to avoid crash
-    revalidatePath('/ubicaciones')
+    console.error('Raw SQL createLocation error:', error)
+    return { success: false, error: String(error) }
   }
 }
 
