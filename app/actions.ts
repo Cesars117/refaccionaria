@@ -329,17 +329,23 @@ export async function updateLocation(formData: FormData) {
 }
 
 export async function deleteLocation(formData: FormData) {
-  const id = parseInt(formData.get('id') as string)
   try {
-    const loc = await db.location.findUnique({ where: { id }, include: { _count: { select: { parts: true } } } })
-    if (loc?._count?.parts && loc._count.parts > 0) {
-      console.warn('Cannot delete location with parts')
-      return
+    const id = parseInt(formData.get('id') as string)
+    // Usar SQL directo para evitar problemas de relación
+    const count: any = await db.$queryRaw`SELECT COUNT(*) as count FROM parts WHERE locationId = ${id}`
+    const partsCount = count[0]?.count || 0
+
+    if (partsCount > 0) {
+      return { success: false, error: 'Ubicación tiene partes asignadas' }
     }
-    await db.location.delete({ where: { id } })
+
+    await db.$executeRawUnsafe(`DELETE FROM locations WHERE id = ?`, id)
+    
     revalidatePath('/ubicaciones')
-  } catch (error) {
+    return { success: true }
+  } catch (error: any) {
     console.error('Error deleting location:', error)
+    return { success: false, error: error.message }
   }
 }
 

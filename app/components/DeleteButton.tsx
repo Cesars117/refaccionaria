@@ -40,9 +40,12 @@ export function DeleteButton({ id, type, partsCount = 0 }: DeleteButtonProps) {
 
         if (result && !result.success) {
           alert('No se pudo eliminar: ' + (result.error || 'Error desconocido'));
-        } else if (type === 'part') {
-          router.push('/partes')
-          router.refresh()
+        } else if (result && result.success) {
+          alert('Eliminado con éxito');
+          if (type === 'part') {
+            router.push('/partes');
+          }
+          router.refresh();
         }
       } catch (error) {
         alert('Error al eliminar. Intente de nuevo.')
