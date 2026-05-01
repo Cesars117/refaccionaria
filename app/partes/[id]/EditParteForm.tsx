@@ -2,7 +2,7 @@
 
 import { useTransition } from 'react';
 import { useRouter } from 'next/navigation';
-import { updatePart } from '@/app/actions';
+import { updatePartAction } from '@/app/part_actions';
 
 interface Category { id: number; name: string; }
 interface Location { id: number; name: string; type: string; }
@@ -23,7 +23,7 @@ export default function EditParteForm({
     <form
       action={(fd) => {
         startTransition(async () => {
-          const res = await updatePart(fd);
+          const res = await updatePartAction(fd);
           if (res?.success) {
             router.push('/partes');
             router.refresh();
