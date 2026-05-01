@@ -38,8 +38,9 @@ export function DeleteButton({ id, type, partsCount = 0 }: DeleteButtonProps) {
         else if (type === 'location') result = await deleteLocation(formData)
         else if (type === 'part') result = await deletePart(formData)
 
-        // Si es una parte, redirigir al inventario
-        if (type === 'part') {
+        if (result && !result.success) {
+          alert('No se pudo eliminar: ' + (result.error || 'Error desconocido'));
+        } else if (type === 'part') {
           router.push('/partes')
           router.refresh()
         }

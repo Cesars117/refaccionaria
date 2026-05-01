@@ -352,6 +352,18 @@ export async function deleteLocation(formData: FormData) {
   }
 }
 
+export async function deletePart(formData: FormData) {
+  try {
+    const id = parseInt(formData.get('id') as string)
+    await db.$executeRawUnsafe(`DELETE FROM parts WHERE id = ?`, id)
+    revalidatePath('/partes')
+    return { success: true }
+  } catch (error: any) {
+    console.error('Delete part error:', error)
+    return { success: false, error: error.message }
+  }
+}
+
 // ─── CUSTOMERS ────────────────────────────────────────────
 export async function getCustomers(type?: string) {
   return db.customer.findMany({
