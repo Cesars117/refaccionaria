@@ -1,37 +1,62 @@
 'use client'
 
-import { deleteCategory, deleteLocation } from '@/app/actions'
+import { useTransition } from 'react'
+import { useRouter } from 'next/navigation'
+import { deleteCategory, deleteLocation, deletePart } from '@/app/actions'
 
 interface DeleteButtonProps {
-  id: number
-  type: 'category' | 'location'
+  id: number | string
+  type: 'category' | 'location' | 'part'
   partsCount?: number
 }
 
 export function DeleteButton({ id, type, partsCount = 0 }: DeleteButtonProps) {
-  const action = type === 'category' ? deleteCategory : deleteLocation
-  
-  const handleSubmit = (e: React.FormEvent) => {
-    if (partsCount > 0) {
-      alert(`No se puede eliminar: esta ${type === 'category' ? 'categoría' : 'ubicación'} tiene ${partsCount} partes asignadas. Debe mover o eliminar las partes primero.`);
-      e.preventDefault();
-      return;
+  const [isPending, startTransition] = useTransition()
+  const router = useRouter()
+
+  const handleDelete = async (e: React.FormEvent) => {
+    e.preventDefault()
+
+    if (type !== 'part' && partsCount > 0) {
+      alert(`No se puede eliminar: esta ${type === 'category' ? 'categoría' : 'ubicación'} tiene ${partsCount} partes asignadas.`);
+      return
     }
-    
-    const message = type === 'category' 
-      ? '¿Estás seguro de eliminar esta categoría?' 
-      : '¿Estás seguro de eliminar esta ubicación?';
-      
-    if (!confirm(message)) {
-      e.preventDefault();
-    }
-  };
+
+    const message = type === 'part' 
+      ? '¿Eliminar esta parte permanentemente?' 
+      : `¿Eliminar esta ${type === 'category' ? 'categoría' : 'ubicación'}?`
+
+    if (!confirm(message)) return
+
+    startTransition(async () => {
+      try {
+        const formData = new FormData()
+        formData.append('id', id.toString())
+        
+        let result: any
+        if (type === 'category') result = await deleteCategory(formData)
+        else if (type === 'location') result = await deleteLocation(formData)
+        else if (type === 'part') result = await deletePart(formData)
+
+        // Si es una parte, redirigir al inventario
+        if (type === 'part') {
+          router.push('/partes')
+          router.refresh()
+        }
+      } catch (error) {
+        alert('Error al eliminar. Intente de nuevo.')
+      }
+    })
+  }
 
   return (
-    <form action={action} onSubmit={handleSubmit}>
-      <input type="hidden" name="id" value={id} />
-      <button type="submit" className="text-xs text-red-500 hover:text-red-700">
-        Eliminar
+    <form onSubmit={handleDelete}>
+      <button 
+        type="submit" 
+        disabled={isPending}
+        className={`text-xs font-semibold ${isPending ? 'text-gray-400' : 'text-red-500 hover:text-red-700'}`}
+      >
+        {isPending ? 'Eliminando...' : 'Eliminar'}
       </button>
     </form>
   )

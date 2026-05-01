@@ -66,7 +66,7 @@ export default async function UbicacionesPage() {
                         <input type="hidden" name="id" value={l.id} />
                         <div className="flex gap-2">
                           <input name="name" defaultValue={l.name} className="input-field h-8 text-xs flex-1" required placeholder="Nombre" />
-                          <select name="type" defaultValue={l.type} className="input-field h-8 text-xs w-28 min-w-[100px]">
+                          <select name="type" defaultValue={l.type} className="input-field py-1 text-xs w-32 min-w-[120px]">
                             <option value="WAREHOUSE">Almacén</option>
                             <option value="VEHICLE">Vehículo</option>
                             <option value="SITE">Sitio</option>
