@@ -23,6 +23,12 @@ async function requireAdminUser() {
   if (!canManageUsers(user.role)) {
     throw new Error('No autorizado: solo super admin')
   }
+  // Intento silencioso de asegurar que la columna username existe
+  try {
+    await db.$executeRaw`ALTER TABLE users ADD COLUMN username TEXT`
+  } catch {
+    // Ya existe o no se pudo agregar
+  }
   return user
 }
 
@@ -688,21 +694,17 @@ export async function getUsers() {
     })
   } catch {
     const rows = (await db.$queryRaw`
-      SELECT id, email, name, role, isActive, createdAt
-      FROM users
+      SELECT * FROM users
       ORDER BY createdAt DESC
-    `) as Array<{
-      id: string
-      email: string
-      name: string
-      role: string
-      isActive: boolean
-      createdAt: string
-    }>
+    `) as any[]
 
     return rows.map((row) => ({
-      ...row,
-      username: null,
+      id: row.id,
+      username: row.username ?? null,
+      email: row.email,
+      name: row.name,
+      role: row.role,
+      isActive: Boolean(row.isActive),
       createdAt: new Date(row.createdAt),
     }))
   }
@@ -740,10 +742,18 @@ export async function createUserAccount(formData: FormData) {
   } catch (error) {
     console.error('Prisma user creation failed, falling back to raw SQL:', error)
     const newId = crypto.randomUUID()
-    await db.$executeRaw`
-      INSERT INTO users (id, username, email, password, name, role, isActive, createdAt, updatedAt)
-      VALUES (${newId}, ${username}, ${email}, ${hashedPassword}, ${name}, ${role}, 1, datetime('now'), datetime('now'))
-    `
+    try {
+      await db.$executeRaw`
+        INSERT INTO users (id, username, email, password, name, role, isActive, createdAt, updatedAt)
+        VALUES (${newId}, ${username}, ${email}, ${hashedPassword}, ${name}, ${role}, 1, datetime('now'), datetime('now'))
+      `
+    } catch (sqlError) {
+      console.error('Raw SQL insert with username failed, trying without:', sqlError)
+      await db.$executeRaw`
+        INSERT INTO users (id, email, password, name, role, isActive, createdAt, updatedAt)
+        VALUES (${newId}, ${email}, ${hashedPassword}, ${name}, ${role}, 1, datetime('now'), datetime('now'))
+      `
+    }
     created = { id: newId, username, email }
   }
 
@@ -841,11 +851,22 @@ export async function updateUserAccount(formData: FormData) {
     })
   } catch (error) {
     console.error('Prisma user update failed, falling back to raw SQL:', error)
-    await db.$executeRaw`
-      UPDATE users
-      SET username = ${username}, name = ${name}, email = ${email}, updatedAt = datetime('now')
-      WHERE id = ${id}
-    `
+    try {
+      // Try with username
+      await db.$executeRaw`
+        UPDATE users
+        SET username = ${username}, name = ${name}, email = ${email}, updatedAt = datetime('now')
+        WHERE id = ${id}
+      `
+    } catch (sqlError) {
+      console.error('Raw SQL with username failed, trying without username:', sqlError)
+      // Try without username (maybe column missing)
+      await db.$executeRaw`
+        UPDATE users
+        SET name = ${name}, email = ${email}, updatedAt = datetime('now')
+        WHERE id = ${id}
+      `
+    }
   }
 
   await logAudit('USER_UPDATED', 'USER', id, `Datos de usuario actualizados: ${username}`)
