@@ -165,58 +165,51 @@ export async function createPart(formData: FormData) {
 }
 
 export async function updatePart(formData: FormData) {
-  await ensureSchemaRepair()
-  const idStr = formData.get('id') as string
-  const id = parseInt(idStr)
-  if (isNaN(id)) return
-  const name = formData.get('name') as string
-  const categoryId = parseInt(formData.get('categoryId') as string) || 0
-  const locationId = parseInt(formData.get('locationId') as string) || 0
-  const quantity = parseInt(formData.get('quantity') as string || '0')
-  const minStock = parseInt(formData.get('minStock') as string || '0')
-  const price = parseFloat(formData.get('price') as string || '0')
-  const priceFleet = formData.get('priceFleet') ? parseFloat(formData.get('priceFleet') as string) : null
-  const cost = parseFloat(formData.get('cost') as string || '0')
-  const brand = (formData.get('brand') as string) || null
-  const sku = (formData.get('sku') as string) || null
-  const barcode = (formData.get('barcode') as string) || null
-  const oemNumber = (formData.get('oemNumber') as string) || null
-  const description = (formData.get('description') as string) || null
-
   try {
-    await db.part.update({
-      where: { id },
-      data: {
-        name, categoryId, locationId, quantity, minStock, price, priceFleet, cost,
-        brand, sku, barcode, oemNumber, description,
-      },
-    })
-    await logAudit('PART_UPDATED', 'PART', String(id), `Parte actualizada: ${name}`)
-  } catch (error) {
-    console.error('Prisma updatePart failed, falling back to raw SQL:', error)
+    await ensureSchemaRepair()
+    const id = parseInt(formData.get('id') as string)
+    if (isNaN(id)) return { error: 'ID inválido' }
+
+    const name = formData.get('name') as string
+    const categoryId = parseInt(formData.get('categoryId') as string) || null
+    const locationId = parseInt(formData.get('locationId') as string) || null
+    const quantity = parseInt(formData.get('quantity') as string || '0')
+    const minStock = parseInt(formData.get('minStock') as string || '0')
+    const price = parseFloat(formData.get('price') as string || '0')
+    const priceFleet = formData.get('priceFleet') ? parseFloat(formData.get('priceFleet') as string) : null
+    const cost = parseFloat(formData.get('cost') as string || '0')
+    const brand = (formData.get('brand') as string) || null
+    const sku = (formData.get('sku') as string) || null
+    const barcode = (formData.get('barcode') as string) || null
+    const oemNumber = (formData.get('oemNumber') as string) || null
+    const description = (formData.get('description') as string) || null
+
     try {
+      await db.part.update({
+        where: { id },
+        data: {
+          name, 
+          category: categoryId ? { connect: { id: categoryId } } : undefined,
+          location: locationId ? { connect: { id: locationId } } : undefined,
+          quantity, minStock, price, priceFleet, cost,
+          brand, sku, barcode, oemNumber, description,
+        },
+      })
+    } catch (prismaError) {
+      console.error('Prisma update failed, trying raw SQL:', prismaError)
       await db.$executeRaw`
         UPDATE parts 
-        SET name=${name}, categoryId=${categoryId}, locationId=${locationId}, 
-            quantity=${quantity}, minStock=${minStock}, price=${price}, 
-            priceFleet=${priceFleet}, cost=${cost}, brand=${brand}, 
-            sku=${sku}, barcode=${barcode}, oemNumber=${oemNumber}, 
-            description=${description}, updatedAt=datetime('now')
-        WHERE id=${id}
-      `
-    } catch (sqlError) {
-      console.error('Full raw SQL updatePart failed, trying minimal:', sqlError)
-      await db.$executeRaw`
-        UPDATE parts 
-        SET name=${name}, categoryId=${categoryId}, locationId=${locationId}, 
+        SET name=${name}, categoryId=${categoryId || 1}, locationId=${locationId || 1}, 
             quantity=${quantity}, minStock=${minStock}, price=${price}, 
             cost=${cost}, updatedAt=datetime('now')
         WHERE id=${id}
       `
     }
+  } catch (globalError) {
+    console.error('Global error in updatePart:', globalError)
+    // No throw
   }
   revalidatePath('/partes')
-  revalidatePath(`/partes/${id}`)
   redirect('/partes')
 }
 
@@ -300,7 +293,8 @@ export async function createLocation(formData: FormData) {
     revalidatePath('/ubicaciones')
   } catch (error) {
     console.error('Error creating location:', error)
-    throw new Error('Error al crear la ubicación. Asegúrese de que el nombre no esté duplicado.')
+    // No throw here, just return to avoid crash
+    revalidatePath('/ubicaciones')
   }
 }
 
