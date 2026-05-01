@@ -16,7 +16,7 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://www.radiamex.com"),
-  title: "A/C Radiamex",
+  title: "A/C Radiamex (v2.2)",
   description: "Venta de radiadores y sistemas de enfriamiento con gestión de inventario y flotas",
   alternates: {
     canonical: "/",
