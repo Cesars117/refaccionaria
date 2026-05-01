@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useTransition } from 'react';
 import { updatePart } from '@/app/actions';
 
 interface Category { id: number; name: string; }
@@ -15,11 +15,15 @@ export default function EditParteForm({
   categories: Category[];
   locations: Location[];
 }) {
-  const [loading, setLoading] = useState(false);
+  const [isPending, startTransition] = useTransition();
 
   return (
     <form
-      action={async (fd) => { setLoading(true); await updatePart(fd); }}
+      action={(fd) => {
+        startTransition(async () => {
+          await updatePart(fd);
+        });
+      }}
       className="space-y-4"
     >
       <input type="hidden" name="id" value={part.id} />
@@ -86,8 +90,8 @@ export default function EditParteForm({
       </div>
 
       <div className="flex justify-end">
-        <button type="submit" disabled={loading} className="btn-primary">
-          {loading ? 'Guardando...' : 'Guardar cambios'}
+        <button type="submit" disabled={isPending} className="btn-primary">
+          {isPending ? 'Guardando...' : 'Guardar cambios'}
         </button>
       </div>
     </form>

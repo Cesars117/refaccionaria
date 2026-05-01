@@ -23,6 +23,11 @@ async function requireAdminUser() {
   if (!canManageUsers(user.role)) {
     throw new Error('No autorizado: solo super admin')
   }
+  await ensureSchemaRepair()
+  return user
+}
+
+async function ensureSchemaRepair() {
   // Auto-reparación silenciosa del esquema
   try {
     await db.$executeRaw`ALTER TABLE users ADD COLUMN username TEXT`
@@ -36,7 +41,6 @@ async function requireAdminUser() {
   try {
     await db.$executeRaw`ALTER TABLE parts ADD COLUMN brand TEXT`
   } catch {}
-  return user
 }
 
 async function logAudit(action: string, entityType: string, entityId: string, details?: string) {
@@ -161,8 +165,10 @@ export async function createPart(formData: FormData) {
 }
 
 export async function updatePart(formData: FormData) {
-  await requireAdminUser()
-  const id = parseInt(formData.get('id') as string)
+  await ensureSchemaRepair()
+  const idStr = formData.get('id') as string
+  const id = parseInt(idStr)
+  if (isNaN(id)) return
   const name = formData.get('name') as string
   const categoryId = parseInt(formData.get('categoryId') as string) || 0
   const locationId = parseInt(formData.get('locationId') as string) || 0
