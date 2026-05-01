@@ -205,15 +205,6 @@ export async function updatePart(formData: FormData) {
   }
 }
 
-export async function deletePart(formData: FormData) {
-  await requireAdminUser()
-  const id = parseInt(formData.get('id') as string)
-  const existing = await db.part.findUnique({ where: { id }, select: { name: true } })
-  await db.part.delete({ where: { id } })
-  await logAudit('PART_DELETED', 'PART', String(id), `Parte eliminada: ${existing?.name ?? id}`)
-  revalidatePath('/partes')
-  redirect('/partes')
-}
 
 // ─── CATEGORIES ────────────────────────────────────────────
 export async function getCategories() {
