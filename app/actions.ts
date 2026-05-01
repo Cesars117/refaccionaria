@@ -200,25 +200,35 @@ export async function getCategories() {
 }
 
 export async function createCategory(formData: FormData) {
-  await db.category.create({
-    data: {
-      name: formData.get('name') as string,
-      description: (formData.get('description') as string) || null,
-    },
-  })
-  revalidatePath('/categorias')
+  try {
+    await db.category.create({
+      data: {
+        name: formData.get('name') as string,
+        description: (formData.get('description') as string) || null,
+      },
+    })
+    revalidatePath('/categorias')
+  } catch (error) {
+    console.error('Error creating category:', error)
+    throw new Error('Error al crear la categoría. Asegúrese de que el nombre no esté duplicado.')
+  }
 }
 
 export async function updateCategory(formData: FormData) {
   const id = parseInt(formData.get('id') as string)
-  await db.category.update({
-    where: { id },
-    data: {
-      name: formData.get('name') as string,
-      description: (formData.get('description') as string) || null,
-    },
-  })
-  revalidatePath('/categorias')
+  try {
+    await db.category.update({
+      where: { id },
+      data: {
+        name: formData.get('name') as string,
+        description: (formData.get('description') as string) || null,
+      },
+    })
+    revalidatePath('/categorias')
+  } catch (error) {
+    console.error('Error updating category:', error)
+    throw new Error('Error al actualizar la categoría.')
+  }
 }
 
 export async function deleteCategory(formData: FormData) {
@@ -237,14 +247,37 @@ export async function getLocations() {
 }
 
 export async function createLocation(formData: FormData) {
-  await db.location.create({ data: { name: formData.get('name') as string } })
-  revalidatePath('/ubicaciones')
+  try {
+    await db.location.create({
+      data: {
+        name: formData.get('name') as string,
+        type: (formData.get('type') as string) || 'WAREHOUSE',
+        description: (formData.get('description') as string) || null,
+      },
+    })
+    revalidatePath('/ubicaciones')
+  } catch (error) {
+    console.error('Error creating location:', error)
+    throw new Error('Error al crear la ubicación. Asegúrese de que el nombre no esté duplicado.')
+  }
 }
 
 export async function updateLocation(formData: FormData) {
   const id = parseInt(formData.get('id') as string)
-  await db.location.update({ where: { id }, data: { name: formData.get('name') as string } })
-  revalidatePath('/ubicaciones')
+  try {
+    await db.location.update({
+      where: { id },
+      data: {
+        name: formData.get('name') as string,
+        type: (formData.get('type') as string) || 'WAREHOUSE',
+        description: (formData.get('description') as string) || null,
+      },
+    })
+    revalidatePath('/ubicaciones')
+  } catch (error) {
+    console.error('Error updating location:', error)
+    throw new Error('Error al actualizar la ubicación.')
+  }
 }
 
 export async function deleteLocation(formData: FormData) {

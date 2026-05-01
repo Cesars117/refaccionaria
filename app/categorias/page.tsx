@@ -1,4 +1,5 @@
-import { getCategories, createCategory, deleteCategory } from '@/app/actions';
+import { getCategories, createCategory, updateCategory, deleteCategory } from '@/app/actions';
+import { DeleteButton } from '@/app/components/DeleteButton';
 import { Plus } from 'lucide-react';
 
 export const dynamic = 'force-dynamic';
@@ -47,14 +48,17 @@ export default async function CategoriasPage() {
               <tbody className="divide-y divide-gray-100 bg-white">
                 {categories.map((c) => (
                   <tr key={c.id} className="hover:bg-gray-50">
-                    <td className="px-4 py-2 text-sm font-medium text-gray-900">{c.name}</td>
-                    <td className="px-3 py-2 text-sm text-gray-500">{c.description ?? '—'}</td>
+                    <td className="px-4 py-2" colSpan={2}>
+                      <form action={updateCategory} className="flex items-center gap-2">
+                        <input type="hidden" name="id" value={c.id} />
+                        <input name="name" defaultValue={c.name} className="input-field h-8 text-xs w-32" required />
+                        <input name="description" defaultValue={c.description ?? ''} placeholder="Descripción" className="input-field h-8 text-xs flex-1" />
+                        <button type="submit" className="btn-secondary h-8 text-xs px-2">Guardar</button>
+                      </form>
+                    </td>
                     <td className="px-3 py-2 text-right text-sm text-gray-600">{(c as any)._count?.parts ?? 0}</td>
                     <td className="px-3 py-2 text-right">
-                      <form action={deleteCategory}>
-                        <input type="hidden" name="id" value={c.id} />
-                        <button type="submit" className="text-xs text-red-500 hover:text-red-700">Eliminar</button>
-                      </form>
+                      <DeleteButton id={c.id} type="category" />
                     </td>
                   </tr>
                 ))}

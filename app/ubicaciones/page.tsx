@@ -1,4 +1,5 @@
-import { getLocations, createLocation, deleteLocation } from '@/app/actions';
+import { getLocations, createLocation, updateLocation, deleteLocation } from '@/app/actions';
+import { DeleteButton } from '@/app/components/DeleteButton';
 import { Plus } from 'lucide-react';
 
 export const dynamic = 'force-dynamic';
@@ -61,14 +62,22 @@ export default async function UbicacionesPage() {
               <tbody className="divide-y divide-gray-100 bg-white">
                 {locations.map((l) => (
                   <tr key={l.id} className="hover:bg-gray-50">
-                    <td className="px-4 py-2 text-sm font-medium text-gray-900">{l.name}</td>
-                    <td className="px-3 py-2 text-sm text-gray-500">{TYPE_LABELS[l.type] ?? l.type}</td>
+                    <td className="px-4 py-2" colSpan={2}>
+                      <form action={updateLocation} className="flex items-center gap-2">
+                        <input type="hidden" name="id" value={l.id} />
+                        <input name="name" defaultValue={l.name} className="input-field h-8 text-xs w-32" required />
+                        <select name="type" defaultValue={l.type} className="input-field h-8 text-xs w-24">
+                          <option value="WAREHOUSE">Almacén</option>
+                          <option value="VEHICLE">Vehículo</option>
+                          <option value="SITE">Sitio</option>
+                        </select>
+                        <input name="description" defaultValue={l.description ?? ''} placeholder="Descripción" className="input-field h-8 text-xs flex-1" />
+                        <button type="submit" className="btn-secondary h-8 text-xs px-2">Guardar</button>
+                      </form>
+                    </td>
                     <td className="px-3 py-2 text-right text-sm text-gray-600">{(l as any)._count?.parts ?? 0}</td>
                     <td className="px-3 py-2 text-right">
-                      <form action={deleteLocation}>
-                        <input type="hidden" name="id" value={l.id} />
-                        <button type="submit" className="text-xs text-red-500 hover:text-red-700">Eliminar</button>
-                      </form>
+                      <DeleteButton id={l.id} type="location" />
                     </td>
                   </tr>
                 ))}
