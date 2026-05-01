@@ -270,7 +270,13 @@ export async function deleteCategory(formData: FormData) {
 
 // ─── LOCATIONS ────────────────────────────────────────────
 export async function getLocations() {
-  return db.location.findMany({ orderBy: { name: 'asc' } })
+  await ensureSchemaRepair()
+  return db.location.findMany({ 
+    orderBy: { name: 'asc' },
+    include: {
+      _count: { select: { parts: true } }
+    }
+  })
 }
 
 export async function createLocation(formData: FormData) {
