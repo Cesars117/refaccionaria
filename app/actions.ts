@@ -270,15 +270,15 @@ export async function createLocation(formData: FormData) {
     const type = (formData.get('type') as string) || 'WAREHOUSE'
     const description = (formData.get('description') as string) || ''
     
-    await db.$executeRaw`
-      INSERT INTO locations (name, type, description, createdAt, updatedAt)
-      VALUES (${name}, ${type}, ${description}, datetime('now'), datetime('now'))
-    `
+    await db.$executeRawUnsafe(
+      `INSERT INTO locations (name, type, description, createdAt, updatedAt) VALUES (?, ?, ?, datetime('now'), datetime('now'))`,
+      name, type, description
+    )
     revalidatePath('/ubicaciones')
     return { success: true }
-  } catch (error) {
+  } catch (error: any) {
     console.error('Raw SQL createLocation error:', error)
-    return { success: false, error: String(error) }
+    return { success: false, error: error.message || 'Error al guardar' }
   }
 }
 
