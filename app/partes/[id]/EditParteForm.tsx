@@ -21,14 +21,27 @@ export default function EditParteForm({
 
   return (
     <form
-      action={(fd) => {
+      onSubmit={async (e) => {
+        e.preventDefault();
+        const fd = new FormData(e.currentTarget);
         startTransition(async () => {
-          const res = await updatePartAction(fd);
-          if (res?.success) {
-            router.push('/partes');
-            router.refresh();
-          } else if (res?.error) {
-            alert('Error al guardar: ' + res.error);
+          try {
+            const res = await fetch('/api/parts/update', {
+              method: 'POST',
+              body: JSON.stringify({
+                id: fd.get('id'),
+                name: fd.get('name'),
+              }),
+            });
+            const result = await res.json();
+            if (result.success) {
+              router.push('/partes');
+              router.refresh();
+            } else {
+              alert('Error al guardar: ' + result.error);
+            }
+          } catch (err: any) {
+            alert('Error de conexión: ' + err.message);
           }
         });
       }}
