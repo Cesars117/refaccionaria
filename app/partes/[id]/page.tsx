@@ -1,4 +1,5 @@
-import { getPartById, getCategories, getLocations, deletePart } from '@/app/actions';
+import { getPartById, getCategories, getLocations } from '@/app/actions';
+import { DeleteButton } from '@/app/components/DeleteButton';
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import { ArrowLeft, Edit } from 'lucide-react';
@@ -13,10 +14,10 @@ export default async function ParteDetailPage({ params }: any) {
     const idStr = resolvedParams?.id;
     const id = parseInt(idStr);
     
-    if (isNaN(id)) return <div>ID inválido</div>;
+    if (isNaN(id)) return <div className="p-10">ID inválido</div>;
 
     const part = await getPartById(id);
-    if (!part) return <div>Parte no encontrada</div>;
+    if (!part) return <div className="p-10">Parte no encontrada</div>;
 
     const categories = await getCategories();
     const locations = await getLocations();
@@ -44,7 +45,7 @@ export default async function ParteDetailPage({ params }: any) {
 
         <div className="card p-5">
           <h2 className="text-base font-semibold text-gray-900 mb-4 flex items-center gap-2">
-            <Edit className="h-4 w-4" /> Editar parte (v2.4)
+            <Edit className="h-4 w-4" /> Editar parte (v2.5)
           </h2>
           <EditParteForm 
             part={serializedPart} 
@@ -53,8 +54,14 @@ export default async function ParteDetailPage({ params }: any) {
           />
         </div>
 
+        <div className="mt-6 p-5 border border-red-100 rounded-xl bg-red-50/30">
+          <h3 className="text-sm font-bold text-red-800 mb-3">Zona de peligro</h3>
+          <p className="text-xs text-red-600 mb-4">Esta acción eliminará la parte de forma permanente del inventario.</p>
+          <DeleteButton id={id} type="part" />
+        </div>
+
         <div className="mt-8 text-[8px] text-gray-300 text-right">
-          Build v2.4 | ID: {id}
+          Build v2.5 | ID: {id}
         </div>
       </div>
     );
