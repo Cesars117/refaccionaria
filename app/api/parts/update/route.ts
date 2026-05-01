@@ -5,7 +5,7 @@ import { revalidatePath } from 'next/cache';
 export async function POST(req: NextRequest) {
   try {
     const data = await req.json();
-    const { id, name } = data;
+    const { id, name, sku, brand, oemNumber, price, quantity, categoryId, locationId, description } = data;
 
     if (!id || !name) {
       return NextResponse.json({ success: false, error: 'ID y Nombre son obligatorios' }, { status: 400 });
@@ -13,8 +13,15 @@ export async function POST(req: NextRequest) {
 
     // Usar SQL puro para máxima compatibilidad
     await db.$executeRawUnsafe(
-      `UPDATE parts SET name=? WHERE id=?`,
-      name, parseInt(id)
+      `UPDATE parts SET 
+        name=?, sku=?, brand=?, oemNumber=?, price=?, quantity=?, 
+        categoryId=?, locationId=?, description=?, 
+        updatedAt=datetime('now') 
+      WHERE id=?`,
+      name, sku || '', brand || '', oemNumber || '', 
+      parseFloat(price) || 0, parseInt(quantity) || 0, 
+      parseInt(categoryId) || 1, parseInt(locationId) || 1, 
+      description || '', parseInt(id)
     );
 
     // Intentar revalidar (si falla, no importa)
