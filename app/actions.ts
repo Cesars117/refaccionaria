@@ -128,6 +128,7 @@ export async function getPartById(id: number) {
 }
 
 export async function createPart(formData: FormData) {
+  await requireAdminUser()
   const name = formData.get('name') as string
   const categoryId = parseInt(formData.get('categoryId') as string)
   const locationId = parseInt(formData.get('locationId') as string)
@@ -160,6 +161,7 @@ export async function createPart(formData: FormData) {
 }
 
 export async function updatePart(formData: FormData) {
+  await requireAdminUser()
   const id = parseInt(formData.get('id') as string)
   const name = formData.get('name') as string
   const categoryId = parseInt(formData.get('categoryId') as string) || 0
@@ -213,6 +215,7 @@ export async function updatePart(formData: FormData) {
 }
 
 export async function deletePart(formData: FormData) {
+  await requireAdminUser()
   const id = parseInt(formData.get('id') as string)
   const existing = await db.part.findUnique({ where: { id }, select: { name: true } })
   await db.part.delete({ where: { id } })

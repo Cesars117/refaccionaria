@@ -58,7 +58,7 @@ export default async function CategoriasPage() {
                     </td>
                     <td className="px-3 py-2 text-right text-sm text-gray-600">{(c as any)._count?.parts ?? 0}</td>
                     <td className="px-3 py-2 text-right">
-                      <DeleteButton id={c.id} type="category" />
+                      <DeleteButton id={c.id} type="category" partsCount={(c as any)._count?.parts ?? 0} />
                     </td>
                   </tr>
                 ))}

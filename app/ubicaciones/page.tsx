@@ -66,7 +66,7 @@ export default async function UbicacionesPage() {
                       <form action={updateLocation} className="flex items-center gap-2">
                         <input type="hidden" name="id" value={l.id} />
                         <input name="name" defaultValue={l.name} className="input-field h-8 text-xs w-32" required />
-                        <select name="type" defaultValue={l.type} className="input-field h-8 text-xs w-24">
+                        <select name="type" defaultValue={l.type} className="input-field h-8 text-xs w-32">
                           <option value="WAREHOUSE">Almacén</option>
                           <option value="VEHICLE">Vehículo</option>
                           <option value="SITE">Sitio</option>
@@ -77,7 +77,7 @@ export default async function UbicacionesPage() {
                     </td>
                     <td className="px-3 py-2 text-right text-sm text-gray-600">{(l as any)._count?.parts ?? 0}</td>
                     <td className="px-3 py-2 text-right">
-                      <DeleteButton id={l.id} type="location" />
+                      <DeleteButton id={l.id} type="location" partsCount={(l as any)._count?.parts ?? 0} />
                     </td>
                   </tr>
                 ))}
