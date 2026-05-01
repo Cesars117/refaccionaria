@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import db from '@/lib/db';
 import { revalidatePath } from 'next/cache';
+import { notifyTiendaOfUpdate } from '@/app/lib/tienda-sync';
 
 export async function POST(req: NextRequest) {
   try {
@@ -28,6 +29,9 @@ export async function POST(req: NextRequest) {
     try {
       revalidatePath('/partes');
     } catch {}
+
+    // Notificar a la tienda de forma asíncrona
+    notifyTiendaOfUpdate(parseInt(id)).catch(console.error);
 
     return NextResponse.json({ success: true });
   } catch (error: any) {
