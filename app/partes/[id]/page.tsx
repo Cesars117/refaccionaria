@@ -66,7 +66,7 @@ export default async function ParteDetailPage({ params }: { params: Promise<{ id
       {/* Edit form */}
       <div className="card p-5">
         <h2 className="text-base font-semibold text-gray-900 mb-4 flex items-center gap-2">
-          <Edit className="h-4 w-4" /> Editar parte
+          <Edit className="h-4 w-4" /> Editar parte (v2.1)
         </h2>
         <EditParteForm 
           part={serializedPart} 
