@@ -31,6 +31,14 @@ export default function EditParteForm({
               body: JSON.stringify({
                 id: fd.get('id'),
                 name: fd.get('name'),
+                sku: fd.get('sku'),
+                brand: fd.get('brand'),
+                oemNumber: fd.get('oemNumber'),
+                price: fd.get('price'),
+                quantity: fd.get('quantity'),
+                categoryId: fd.get('categoryId'),
+                locationId: fd.get('locationId'),
+                description: fd.get('description'),
               }),
             });
             const result = await res.json();

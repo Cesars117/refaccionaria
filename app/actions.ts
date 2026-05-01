@@ -120,15 +120,18 @@ export async function getParts(query?: string, filterLow?: boolean) {
 }
 
 export async function getPartById(id: number) {
-  return db.part.findUnique({
-    where: { id },
-    include: {
-      category: true,
-      location: true,
-      fitment: { include: { vehicleModel: true } },
-      supplierParts: { include: { supplier: true } },
-    },
-  })
+  try {
+    return await db.part.findUnique({
+      where: { id },
+      include: {
+        category: true,
+        location: true,
+      },
+    })
+  } catch (error) {
+    console.error('Error in getPartById:', error)
+    return db.part.findUnique({ where: { id } })
+  }
 }
 
 export async function createPart(formData: FormData) {
