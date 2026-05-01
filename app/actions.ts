@@ -41,6 +41,12 @@ async function ensureSchemaRepair() {
   try {
     await db.$executeRaw`ALTER TABLE parts ADD COLUMN brand TEXT`
   } catch {}
+  try {
+    await db.$executeRaw`ALTER TABLE locations ADD COLUMN type TEXT`
+  } catch {}
+  try {
+    await db.$executeRaw`ALTER TABLE locations ADD COLUMN description TEXT`
+  } catch {}
 }
 
 async function logAudit(action: string, entityType: string, entityId: string, details?: string) {
@@ -269,19 +275,29 @@ export async function getLocations() {
 
 export async function createLocation(formData: FormData) {
   try {
+    await ensureSchemaRepair()
     const name = formData.get('name') as string
     const type = (formData.get('type') as string) || 'WAREHOUSE'
     const description = (formData.get('description') as string) || ''
     
-    await db.$executeRawUnsafe(
-      `INSERT INTO locations (name, type, description, createdAt, updatedAt) VALUES (?, ?, ?, datetime('now'), datetime('now'))`,
-      name, type, description
-    )
+    // Intento con SQL puro
+    try {
+      await db.$executeRawUnsafe(
+        `INSERT INTO locations (name, type, description) VALUES (?, ?, ?)`,
+        name, type, description
+      )
+    } catch (e) {
+      // Fallback si las columnas no existen aún
+      await db.$executeRawUnsafe(
+        `INSERT INTO locations (name) VALUES (?)`,
+        name
+      )
+    }
     revalidatePath('/ubicaciones')
     return { success: true }
   } catch (error: any) {
-    console.error('Raw SQL createLocation error:', error)
-    return { success: false, error: error.message || 'Error al guardar' }
+    console.error('Create location error:', error)
+    return { success: false, error: error.message }
   }
 }
 

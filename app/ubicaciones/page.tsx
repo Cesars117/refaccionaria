@@ -50,33 +50,36 @@ export default async function UbicacionesPage() {
           {locations.length === 0 ? (
             <p className="px-6 py-12 text-center text-sm text-gray-400">Sin ubicaciones</p>
           ) : (
-            <table className="min-w-full divide-y divide-gray-200">
+            <table className="min-w-full divide-y divide-gray-200 table-fixed">
               <thead className="bg-gray-50">
                 <tr>
-                  <th className="table-header px-4 py-3">Nombre</th>
-                  <th className="table-header px-3 py-3">Tipo</th>
-                  <th className="table-header px-3 py-3 text-right">Partes</th>
-                  <th className="px-3 py-3" />
+                  <th className="px-4 py-3 text-left text-[10px] font-bold text-gray-500 uppercase tracking-wider w-1/2">Gestión de Ubicación</th>
+                  <th className="px-3 py-3 text-right text-[10px] font-bold text-gray-500 uppercase tracking-wider w-1/4">Partes</th>
+                  <th className="px-3 py-3 w-1/4" />
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100 bg-white">
                 {locations.map((l) => (
                   <tr key={l.id} className="hover:bg-gray-50">
-                    <td className="px-4 py-2" colSpan={2}>
-                      <form action={updateLocation} className="flex items-center gap-2">
+                    <td className="px-4 py-3">
+                      <form action={updateLocation} className="grid grid-cols-1 gap-2">
                         <input type="hidden" name="id" value={l.id} />
-                        <input name="name" defaultValue={l.name} className="input-field h-8 text-xs w-32" required />
-                        <select name="type" defaultValue={l.type} className="input-field h-8 text-xs w-32">
-                          <option value="WAREHOUSE">Almacén</option>
-                          <option value="VEHICLE">Vehículo</option>
-                          <option value="SITE">Sitio</option>
-                        </select>
-                        <input name="description" defaultValue={l.description ?? ''} placeholder="Descripción" className="input-field h-8 text-xs flex-1" />
-                        <button type="submit" className="btn-secondary h-8 text-xs px-2">Guardar</button>
+                        <div className="flex gap-2">
+                          <input name="name" defaultValue={l.name} className="input-field h-8 text-xs flex-1" required placeholder="Nombre" />
+                          <select name="type" defaultValue={l.type} className="input-field h-8 text-xs w-24">
+                            <option value="WAREHOUSE">Almacén</option>
+                            <option value="VEHICLE">Vehículo</option>
+                            <option value="SITE">Sitio</option>
+                          </select>
+                        </div>
+                        <div className="flex gap-2">
+                          <input name="description" defaultValue={l.description ?? ''} placeholder="Descripción" className="input-field h-8 text-xs flex-1" />
+                          <button type="submit" className="btn-secondary h-8 text-xs px-3">Guardar</button>
+                        </div>
                       </form>
                     </td>
-                    <td className="px-3 py-2 text-right text-sm text-gray-600">{(l as any)._count?.parts ?? 0}</td>
-                    <td className="px-3 py-2 text-right">
+                    <td className="px-3 py-3 text-right text-sm font-medium text-gray-600">{(l as any)._count?.parts ?? 0}</td>
+                    <td className="px-3 py-3 text-right">
                       <DeleteButton id={l.id} type="location" partsCount={(l as any)._count?.parts ?? 0} />
                     </td>
                   </tr>
