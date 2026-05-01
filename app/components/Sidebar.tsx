@@ -134,7 +134,9 @@ export default function Sidebar() {
           </div>
           <div>
             <p className="text-xs font-medium text-gray-700">A/C Radiamex</p>
-            <p className="text-[10px] text-gray-400">www.radiamex.com</p>
+            <p className="text-[10px] text-gray-400 flex items-center gap-1">
+              www.radiamex.com <span className="text-[8px] opacity-50">(v2.3)</span>
+            </p>
           </div>
         </div>
         <button
