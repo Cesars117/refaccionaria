@@ -270,13 +270,25 @@ export async function deleteCategory(formData: FormData) {
 
 // ─── LOCATIONS ────────────────────────────────────────────
 export async function getLocations() {
-  await ensureSchemaRepair()
-  return db.location.findMany({ 
-    orderBy: { name: 'asc' },
-    include: {
-      _count: { select: { parts: true } }
+  try {
+    await ensureSchemaRepair()
+    return await db.location.findMany({ 
+      orderBy: { name: 'asc' },
+      include: {
+        _count: { select: { parts: true } }
+      }
+    })
+  } catch (error) {
+    console.error('Error in getLocations Prisma fetch:', error)
+    try {
+      // Fallback to raw SQL if schema is out of sync
+      const raw = await db.$queryRaw`SELECT id, name FROM locations ORDER BY name ASC`
+      return (raw as any[]).map(l => ({ ...l, _count: { parts: 0 } }))
+    } catch (e) {
+      console.error('Critical failure in getLocations:', e)
+      return []
     }
-  })
+  }
 }
 
 export async function createLocation(formData: FormData) {
