@@ -5,6 +5,7 @@ import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { getServerSession } from 'next-auth'
 import bcrypt from 'bcryptjs'
+import crypto from 'crypto'
 import { authOptions } from '@/lib/auth'
 import { canManageUsers, normalizeRole, ROLES } from '@/lib/rbac'
 
@@ -818,6 +819,60 @@ export async function resetUserPassword(formData: FormData) {
   }
 
   await logAudit('USER_PASSWORD_RESET', 'USER', id, 'Contraseña restablecida por super admin')
+  revalidatePath('/usuarios')
+}
+
+export async function updateUserAccount(formData: FormData) {
+  await requireAdminUser()
+
+  const id = formData.get('id') as string
+  const username = (formData.get('username') as string | null)?.trim()
+  const name = (formData.get('name') as string | null)?.trim()
+  const email = (formData.get('email') as string | null)?.trim().toLowerCase()
+
+  if (!id || !username || !name || !email) {
+    throw new Error('Todos los campos son obligatorios')
+  }
+
+  try {
+    await db.user.update({
+      where: { id },
+      data: { username, name, email },
+    })
+  } catch (error) {
+    console.error('Prisma user update failed, falling back to raw SQL:', error)
+    await db.$executeRaw`
+      UPDATE users
+      SET username = ${username}, name = ${name}, email = ${email}, updatedAt = datetime('now')
+      WHERE id = ${id}
+    `
+  }
+
+  await logAudit('USER_UPDATED', 'USER', id, `Datos de usuario actualizados: ${username}`)
+  revalidatePath('/usuarios')
+}
+
+export async function deleteUserAccount(formData: FormData) {
+  const actor = await requireAdminUser()
+  const id = formData.get('id') as string
+
+  if (id === actor.email) {
+    throw new Error('No puedes eliminar tu propia cuenta')
+  }
+
+  const user = await db.user.findUnique({ where: { id }, select: { username: true, email: true } })
+  if (!user) throw new Error('Usuario no encontrado')
+
+  try {
+    await db.user.delete({ where: { id } })
+  } catch (error) {
+    console.error('Prisma user deletion failed, falling back to raw SQL:', error)
+    await db.$executeRaw`
+      DELETE FROM users WHERE id = ${id}
+    `
+  }
+
+  await logAudit('USER_DELETED', 'USER', id, `Usuario eliminado: ${user.username ?? user.email}`)
   revalidatePath('/usuarios')
 }
 
