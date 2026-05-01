@@ -1,6 +1,7 @@
 'use client';
 
 import { useTransition } from 'react';
+import { useRouter } from 'next/navigation';
 import { updatePart } from '@/app/actions';
 
 interface Category { id: number; name: string; }
@@ -16,12 +17,19 @@ export default function EditParteForm({
   locations: Location[];
 }) {
   const [isPending, startTransition] = useTransition();
+  const router = useRouter();
 
   return (
     <form
       action={(fd) => {
         startTransition(async () => {
-          await updatePart(fd);
+          const res = await updatePart(fd);
+          if (res?.success) {
+            router.push('/partes');
+            router.refresh();
+          } else if (res?.error) {
+            alert('Error al guardar: ' + res.error);
+          }
         });
       }}
       className="space-y-4"
