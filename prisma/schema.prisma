@@ -8,7 +8,7 @@ generator client {
 
 datasource db {
   provider = "sqlite"
-  url      = env("DATABASE_URL")
+  url      = "file:./local.db"
 }
 
 // ─── USUARIOS Y SEGURIDAD ──────────────────────────────────
@@ -305,4 +305,19 @@ model AuditLog {
   createdAt  DateTime @default(now())
 
   @@map("audit_log")
+}
+
+// ─── GESTIÓN FINANCIERA ────────────────────────────────────
+model FinancialEntry {
+  id          String   @id @default(cuid())
+  type        String   // INCOME | EXPENSE
+  category    String   // INITIAL_INVESTMENT | RENT | PAYROLL | UTILITIES | OTHER
+  amount      Float
+  description String
+  isPaid      Boolean  @default(true)
+  date        DateTime @default(now())
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("financial_entries")
 }

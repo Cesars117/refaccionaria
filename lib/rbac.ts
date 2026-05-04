@@ -25,3 +25,8 @@ export function canViewRevenue(role?: string | null): boolean {
 export function canViewAudit(role?: string | null): boolean {
   return normalizeRole(role) === ROLES.SUPER_ADMIN
 }
+
+export function canManageFinances(role?: string | null): boolean {
+  const r = normalizeRole(role)
+  return r === ROLES.SUPER_ADMIN || r === ROLES.ADMIN
+}

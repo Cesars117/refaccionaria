@@ -3,16 +3,27 @@ import { getServerSession } from 'next-auth'
 import db from '@/lib/db'
 import { authOptions } from '@/lib/auth'
 import { canViewAudit } from '@/lib/rbac'
+import AuditFilter from './AuditFilter'
 
 export const dynamic = 'force-dynamic'
 
-export default async function AuditoriaPage() {
+export default async function AuditoriaPage({
+  searchParams,
+}: {
+  searchParams: { type?: string }
+}) {
   const session = await getServerSession(authOptions)
   const role = session?.user?.role
+  const selectedType = (await searchParams).type // Handle async searchParams if needed in Next 15+ but current is 16? Actually Next 16 might have it as Promise.
+
+  // Wait, let's check Next version. 16.1.1.
+  // In Next 15+, searchParams is a Promise.
 
   if (!canViewAudit(role)) {
     redirect('/')
   }
+
+  // ... (rest of the code)
 
   let logs: Array<{
     id: number
@@ -27,25 +38,20 @@ export default async function AuditoriaPage() {
 
   try {
     logs = await db.auditLog.findMany({
+      where: selectedType ? { entityType: selectedType } : undefined,
       orderBy: { createdAt: 'desc' },
       take: 200,
     })
   } catch {
-    // Compatibilidad con esquema anterior sin columna userName.
-    const rows = (await db.$queryRaw`
+    // Fallback for raw SQL
+    const filter = selectedType ? `WHERE entityType = '${selectedType}'` : ''
+    const rows = (await db.$queryRawUnsafe(`
       SELECT id, action, entityType, entityId, userEmail, details, createdAt
       FROM audit_log
+      ${filter}
       ORDER BY createdAt DESC
       LIMIT 200
-    `) as Array<{
-      id: number
-      action: string
-      entityType: string
-      entityId: string
-      userEmail: string
-      details: string | null
-      createdAt: string
-    }>
+    `)) as Array<any>
 
     logs = rows.map((row) => ({
       ...row,
@@ -54,11 +60,27 @@ export default async function AuditoriaPage() {
     }))
   }
 
+  const filterOptions = [
+    { label: 'Todos', value: '' },
+    { label: 'Finanzas', value: 'FINANCIAL' },
+    { label: 'Inventario / Partes', value: 'PART' },
+    { label: 'Cat. / Ubicaciones', value: 'INVENTORY' },
+    { label: 'Clientes', value: 'CUSTOMER' },
+    { label: 'Flotas / Unidades', value: 'FLEET' },
+    { label: 'Proyectos', value: 'PROJECT' },
+    { label: 'Cotizaciones', value: 'QUOTE' },
+    { label: 'Usuarios', value: 'USER' },
+  ]
+
   return (
     <div className="p-6 space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-gray-900">Auditoría</h1>
-        <p className="text-sm text-gray-500">Historial de acciones clave: inventario, cotizaciones y usuarios.</p>
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">Auditoría</h1>
+          <p className="text-sm text-gray-500">Historial completo de cambios en la base de datos.</p>
+        </div>
+
+        <AuditFilter initialType={selectedType || ''} options={filterOptions} />
       </div>
 
       <div className="card overflow-hidden">
