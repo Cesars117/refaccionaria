@@ -684,13 +684,72 @@ export async function createQuote(formData: FormData) {
   redirect(`/cotizaciones/${quote.id}`)
 }
 
+export async function updateQuote(formData: FormData) {
+  const id = formData.get('id') as string
+  const customerId = formData.get('customerId') as string
+  const vehicleRef = formData.get('vehicleRef') as string
+  const notes = formData.get('notes') as string
+
+  await db.quote.update({
+    where: { id },
+    data: {
+      customerId,
+      vehicleRef,
+      notes,
+    },
+  })
+
+  await logAudit('QUOTE_UPDATED', 'QUOTE', id, `Datos de cotización actualizados`)
+  revalidatePath('/cotizaciones')
+  revalidatePath(`/cotizaciones/${id}`)
+}
+
 export async function updateQuoteStatus(formData: FormData) {
   const id = formData.get('id') as string
   const status = formData.get('status') as string
-  await db.quote.update({ where: { id }, data: { status } })
-  await logAudit('QUOTE_STATUS_CHANGED', 'QUOTE', id, `Estado actualizado a ${status}`)
+  
+  const quote = await db.quote.findUnique({
+    where: { id },
+    include: { items: true },
+  })
+
+  if (!quote) throw new Error('Cotización no encontrada')
+
+  // Si se marca como SOLD, descontar inventario si no se había hecho antes
+  if (status === 'SOLD' && quote.status !== 'SOLD') {
+    await db.$transaction(async (tx) => {
+      for (const item of quote.items) {
+        await tx.part.update({
+          where: { id: item.partId },
+          data: { quantity: { decrement: item.quantity } },
+        })
+      }
+      await tx.quote.update({
+        where: { id },
+        data: { status: 'SOLD' },
+      })
+      
+      // Registrar como ingreso financiero automáticamente
+      await tx.financialEntry.create({
+        data: {
+          type: 'INCOME',
+          category: 'SALES',
+          amount: quote.total,
+          description: `Venta Cotización ${quote.quoteNumber}`,
+          isPaid: true,
+          date: new Date(),
+        }
+      })
+    })
+    await logAudit('QUOTE_SOLD', 'QUOTE', id, `Venta cerrada: ${quote.quoteNumber}. Inventario descontado e ingreso registrado.`)
+  } else {
+    await db.quote.update({ where: { id }, data: { status } })
+    await logAudit('QUOTE_STATUS_CHANGED', 'QUOTE', id, `Estado actualizado a ${status}`)
+  }
+
   revalidatePath('/cotizaciones')
   revalidatePath(`/cotizaciones/${id}`)
+  revalidatePath('/') // Revalidar dashboard para métricas
 }
 
 export async function deleteQuote(formData: FormData) {
@@ -731,6 +790,23 @@ export async function removeQuoteItem(formData: FormData) {
   if (!item) return
   await db.quoteItem.delete({ where: { id } })
   await logAudit('QUOTE_ITEM_REMOVED', 'QUOTE', item.quoteId, `Parte removida: ${item.description}`)
+  await recalcQuote(item.quoteId)
+  revalidatePath(`/cotizaciones/${item.quoteId}`)
+}
+
+export async function updateQuoteItem(formData: FormData) {
+  const id = formData.get('id') as string
+  const quantity = parseInt(formData.get('quantity') as string)
+  const unitPrice = parseFloat(formData.get('unitPrice') as string)
+  const amount = quantity * unitPrice
+
+  const item = await db.quoteItem.update({
+    where: { id },
+    data: { quantity, unitPrice, amount },
+    select: { quoteId: true, description: true }
+  })
+
+  await logAudit('QUOTE_ITEM_UPDATED', 'QUOTE', item.quoteId, `Item actualizado: ${item.description} (x${quantity})`)
   await recalcQuote(item.quoteId)
   revalidatePath(`/cotizaciones/${item.quoteId}`)
 }

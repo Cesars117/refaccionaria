@@ -1,7 +1,8 @@
 import { getQuotes } from '@/app/actions';
 import Link from 'next/link';
-import { Plus, ArrowRight } from 'lucide-react';
+import { Plus } from 'lucide-react';
 import { formatCurrency } from '@/lib/utils';
+import QuoteRowActions from './QuoteRowActions';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { canViewRevenue } from '@/lib/rbac';
@@ -89,9 +90,7 @@ export default async function CotizacionesPage() {
                         </span>
                       </td>
                       <td className="px-4 py-3 text-right">
-                        <Link href={`/cotizaciones/${q.id}`} className="text-sm text-brand-600 hover:text-brand-800 font-medium inline-flex items-center gap-1">
-                          Ver <ArrowRight className="h-3 w-3" />
-                        </Link>
+                        <QuoteRowActions quoteId={q.id} status={q.status} />
                       </td>
                     </tr>
                   );
