@@ -16,7 +16,7 @@ export default async function FinanzasPage() {
     redirect('/')
   }
 
-  const entries = await getFinancialEntries()
+  const entries = await getFinancialEntries().catch(() => [])
 
   return (
     <div className="p-6 max-w-7xl mx-auto">
