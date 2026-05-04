@@ -50,7 +50,7 @@ export default function QuoteHeader({
           {quote.notes && (
             <p className="text-sm text-gray-500 flex items-center gap-2 italic">
               <FileText size={14} className="text-gray-400" />
-              "{quote.notes}"
+              &quot;{quote.notes}&quot;
             </p>
           )}
         </div>
