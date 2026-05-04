@@ -35,7 +35,7 @@ async function getDashboardData() {
     }),
     db.financialEntry.findMany({
       select: { type: true, amount: true, isPaid: true, date: true },
-    }),
+    }).catch(() => []), // RESILIENCIA: Evita crash si la tabla no existe aún en prod
   ]);
 
   const pendingQuotes = quotes.filter((q) => q.status === 'PENDING').length;
