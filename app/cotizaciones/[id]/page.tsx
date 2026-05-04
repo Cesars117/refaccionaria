@@ -1,9 +1,11 @@
-import { getQuoteById } from '@/app/actions';
+import { getQuoteById, getCustomers } from '@/app/actions';
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import { ArrowLeft } from 'lucide-react';
 import { formatCurrency } from '@/lib/utils';
 import QuoteActions from './QuoteActions';
+import QuoteHeader from './QuoteHeader';
+import QuoteItemRow from './QuoteItemRow';
 import AgregarItemForm from './AgregarItemForm';
 
 export const dynamic = 'force-dynamic';
@@ -16,34 +18,40 @@ const STATUS: Record<string, { label: string; class: string }> = {
 
 export default async function CotizacionDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const quote = await getQuoteById(id);
+  const [quote, customers] = await Promise.all([
+    getQuoteById(id),
+    getCustomers(),
+  ]);
+
   if (!quote) notFound();
 
   const sc = STATUS[quote.status] ?? { label: quote.status, class: 'bg-gray-100 text-gray-600' };
   const isOpen = quote.status === 'PENDING';
 
   return (
-    <div className="p-6 max-w-3xl">
-      {/* Header */}
-      <div className="mb-6 flex items-start justify-between">
-        <div className="flex items-start gap-3">
-          <Link href="/cotizaciones" className="mt-1 text-gray-400 hover:text-gray-600">
-            <ArrowLeft className="h-5 w-5" />
-          </Link>
-          <div>
-            <div className="flex items-center gap-2 flex-wrap">
-              <h1 className="text-2xl font-bold text-gray-900">{quote.quoteNumber}</h1>
-              <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${sc.class}`}>
+    <div className="p-6 max-w-4xl mx-auto">
+      {/* Navigation */}
+      <div className="mb-4">
+        <Link href="/cotizaciones" className="text-gray-400 hover:text-brand-600 flex items-center gap-1 text-sm font-medium transition-colors">
+          <ArrowLeft size={16} /> Volver a Cotizaciones
+        </Link>
+      </div>
+
+      {/* Header Card */}
+      <div className="card p-6 mb-6">
+        <div className="flex flex-col md:flex-row md:items-start justify-between gap-6">
+          <div className="flex-1">
+            <div className="flex items-center gap-3 mb-2">
+              <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider ${sc.class}`}>
                 {sc.label}
               </span>
             </div>
-            <p className="text-sm text-gray-500">
-              {quote.customer.name} · {new Date(quote.createdAt).toLocaleDateString('es-MX')}
-            </p>
-            {quote.vehicleRef && <p className="text-sm text-gray-500">{quote.vehicleRef}</p>}
+            <QuoteHeader quote={quote} customers={customers} />
+          </div>
+          <div className="shrink-0">
+            <QuoteActions quoteId={quote.id} currentStatus={quote.status} />
           </div>
         </div>
-        <QuoteActions quoteId={quote.id} currentStatus={quote.status} />
       </div>
 
       {/* Line items */}
@@ -66,20 +74,7 @@ export default async function CotizacionDetailPage({ params }: { params: Promise
             </thead>
             <tbody className="divide-y divide-gray-50">
               {quote.items.map((item) => (
-                <tr key={item.id} className="hover:bg-gray-50">
-                  <td className="px-4 py-2 text-sm text-gray-900">{item.description}</td>
-                  <td className="px-3 py-2 text-right text-sm">{item.quantity}</td>
-                  <td className="px-3 py-2 text-right text-sm">{formatCurrency(item.unitPrice)}</td>
-                  <td className="px-3 py-2 text-right text-sm font-medium">{formatCurrency(item.amount)}</td>
-                  {isOpen && (
-                    <td className="px-3 py-2 text-right">
-                      <form action={async (fd) => { 'use server'; const { removeQuoteItem } = await import('@/app/actions'); await removeQuoteItem(fd); }}>
-                        <input type="hidden" name="id" value={item.id} />
-                        <button type="submit" className="text-xs text-red-500 hover:text-red-700">Quitar</button>
-                      </form>
-                    </td>
-                  )}
-                </tr>
+                <QuoteItemRow key={item.id} item={item} isOpen={isOpen} />
               ))}
             </tbody>
             <tfoot className="bg-gray-50">

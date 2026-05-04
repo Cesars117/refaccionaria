@@ -8,7 +8,7 @@ generator client {
 
 datasource db {
   provider = "sqlite"
-  url      = "file:./local.db"
+  url      = env("DATABASE_URL")
 }
 
 // ─── USUARIOS Y SEGURIDAD ──────────────────────────────────
