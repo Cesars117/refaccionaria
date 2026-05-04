@@ -1,6 +1,7 @@
 import db from '@/lib/db';
 import { formatCurrency } from '@/lib/utils';
 import { Package, Users, FileText, AlertTriangle, TrendingUp } from 'lucide-react';
+import Link from 'next/link';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { canViewRevenue } from '@/lib/rbac';
@@ -40,7 +41,7 @@ export default async function ReportesPage() {
         <p className="text-sm text-gray-500">Visión general del negocio</p>
       </div>
 
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
+      <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-5 gap-4 mb-6">
         {[
           ...(allowRevenue
             ? [
@@ -50,12 +51,23 @@ export default async function ReportesPage() {
             : []),
           { label: 'Partes en catálogo', value: partCount, icon: Package, color: 'text-blue-600' },
           { label: 'Clientes', value: customerCount, icon: Users, color: 'text-purple-600' },
+          ...(allowRevenue 
+            ? [{ label: 'Gestión Financiera', value: 'Ver Panel', icon: TrendingUp, color: 'text-brand-600', href: '/reportes/finanzas' }]
+            : [])
         ].map((s) => (
-          <div key={s.label} className="card p-4">
-            <s.icon className={`h-5 w-5 ${s.color} mb-2`} />
-            <p className="text-xl font-bold text-gray-900">{s.value}</p>
-            <p className="text-xs text-gray-500">{s.label}</p>
-          </div>
+          s.href ? (
+            <Link key={s.label} href={s.href} className="card p-4 hover:border-brand-300 transition-colors cursor-pointer">
+              <s.icon className={`h-5 w-5 ${s.color} mb-2`} />
+              <p className="text-xl font-bold text-gray-900">{s.value}</p>
+              <p className="text-xs text-gray-500">{s.label}</p>
+            </Link>
+          ) : (
+            <div key={s.label} className="card p-4">
+              <s.icon className={`h-5 w-5 ${s.color} mb-2`} />
+              <p className="text-xl font-bold text-gray-900">{s.value}</p>
+              <p className="text-xs text-gray-500">{s.label}</p>
+            </div>
+          )
         ))}
       </div>
 

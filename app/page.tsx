@@ -1,10 +1,10 @@
 import db from '@/lib/db';
 import Link from 'next/link';
-import { Package, Users, Car, FileText, AlertTriangle, DollarSign, ArrowRight } from 'lucide-react';
+import { Package, Users, Car, FileText, AlertTriangle, DollarSign, ArrowRight, Wallet, TrendingDown } from 'lucide-react';
 import { formatCurrency } from '@/lib/utils';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
-import { canViewRevenue } from '@/lib/rbac';
+import { canViewRevenue, canManageFinances } from '@/lib/rbac';
 
 export const dynamic = 'force-dynamic';
 
@@ -16,6 +16,7 @@ async function getDashboardData() {
     quotes,
     lowStockParts,
     recentQuotes,
+    financialEntries,
   ] = await Promise.all([
     db.part.count(),
     db.customer.count(),
@@ -32,6 +33,9 @@ async function getDashboardData() {
       orderBy: { createdAt: 'desc' },
       include: { customer: true },
     }),
+    db.financialEntry.findMany({
+      select: { type: true, amount: true, isPaid: true, date: true },
+    }),
   ]);
 
   const pendingQuotes = quotes.filter((q) => q.status === 'PENDING').length;
@@ -40,12 +44,32 @@ async function getDashboardData() {
     .filter((q) => q.status === 'SOLD')
     .reduce((sum, q) => sum + q.total, 0);
 
-  return { partCount, customerCount, vehicleCount, pendingQuotes, soldQuotes, totalRevenue, lowStockParts, recentQuotes };
+  const pendingExpenses = financialEntries
+    .filter(e => !e.isPaid && e.type === 'EXPENSE')
+    .reduce((sum, e) => sum + e.amount, 0);
+
+  const totalFinancialIncomes = financialEntries
+    .filter(e => e.isPaid && e.type === 'INCOME')
+    .reduce((sum, e) => sum + e.amount, 0);
+  
+  const totalFinancialExpenses = financialEntries
+    .filter(e => e.isPaid && e.type === 'EXPENSE')
+    .reduce((sum, e) => sum + e.amount, 0);
+
+  const netBalance = totalFinancialIncomes - totalFinancialExpenses;
+
+  return { 
+    partCount, customerCount, vehicleCount, pendingQuotes, soldQuotes, totalRevenue, 
+    lowStockParts, recentQuotes, pendingExpenses, netBalance, financialEntries 
+  };
 }
+
+import FinancialChart from '@/app/components/FinancialChart';
 
 export default async function Home() {
   const session = await getServerSession(authOptions);
   const allowRevenue = canViewRevenue(session?.user?.role);
+  const allowFinances = canManageFinances(session?.user?.role);
   const data = await getDashboardData();
 
   return (
@@ -57,16 +81,50 @@ export default async function Home() {
       </div>
 
       {/* Stats Grid */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 mb-8">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-8 mb-8">
         <StatCard title="Partes" value={data.partCount} icon={<Package className="h-6 w-6" />} color="blue" href="/partes" />
         <StatCard title="Clientes" value={data.customerCount} icon={<Users className="h-6 w-6" />} color="purple" href="/clientes" />
         <StatCard title="Vehículos" value={data.vehicleCount} icon={<Car className="h-6 w-6" />} color="indigo" href="/vehiculos" />
-        <StatCard title="Cotizaciones Pendientes" value={data.pendingQuotes} icon={<FileText className="h-6 w-6" />} color="yellow" href="/cotizaciones?status=PENDING" />
-        <StatCard title="Ventas Cerradas" value={data.soldQuotes} icon={<FileText className="h-6 w-6" />} color="green" href="/cotizaciones?status=SOLD" />
+        <StatCard title="Cots. Pend." value={data.pendingQuotes} icon={<FileText className="h-6 w-6" />} color="yellow" href="/cotizaciones?status=PENDING" />
+        <StatCard title="Ventas" value={data.soldQuotes} icon={<FileText className="h-6 w-6" />} color="green" href="/cotizaciones?status=SOLD" />
         {allowRevenue && (
           <StatCard title="Ingresos" value={formatCurrency(data.totalRevenue)} icon={<DollarSign className="h-6 w-6" />} color="emerald" />
         )}
+        {allowFinances && (
+          <>
+            <StatCard 
+              title="Gastos Pend." 
+              value={formatCurrency(data.pendingExpenses)} 
+              icon={<TrendingDown className="h-6 w-6" />} 
+              color="yellow" 
+              href="/reportes/finanzas"
+            />
+            <StatCard 
+              title="Balance Neto" 
+              value={formatCurrency(data.netBalance)} 
+              icon={<Wallet className="h-6 w-6" />} 
+              color="indigo" 
+              href="/reportes/finanzas"
+            />
+          </>
+        )}
       </div>
+
+      {/* Charts & Secondary Metrics */}
+      {allowFinances && (
+        <div className="mb-8">
+          <div className="card p-6">
+            <div className="flex items-center justify-between mb-6">
+              <div>
+                <h2 className="text-lg font-bold text-gray-900">Tendencia de Balance Neto</h2>
+                <p className="text-sm text-gray-500">Evolución semanal de la liquidez real (Ingresos - Gastos Pagados)</p>
+              </div>
+              <Link href="/reportes/finanzas" className="btn-secondary text-xs">Ver Detalles</Link>
+            </div>
+            <FinancialChart data={JSON.parse(JSON.stringify(data.financialEntries))} />
+          </div>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Recent Quotes */}

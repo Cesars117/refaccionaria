@@ -7,7 +7,7 @@ import { getServerSession } from 'next-auth'
 import bcrypt from 'bcryptjs'
 import crypto from 'crypto'
 import { authOptions } from '@/lib/auth'
-import { canManageUsers, normalizeRole, ROLES } from '@/lib/rbac'
+import { canManageUsers, canManageFinances, normalizeRole, ROLES } from '@/lib/rbac'
 
 async function getSessionUser() {
   const session = await getServerSession(authOptions)
@@ -197,6 +197,7 @@ export async function updatePart(formData: FormData) {
           description=${description}, updatedAt=datetime('now')
       WHERE id=${id}
     `
+    await logAudit('PART_UPDATED', 'PART', String(id), `Actualización: ${name}`)
     revalidatePath('/partes')
     return { success: true }
   } catch (err) {
@@ -213,12 +214,13 @@ export async function getCategories() {
 
 export async function createCategory(formData: FormData) {
   try {
-    await db.category.create({
+    const created = await db.category.create({
       data: {
         name: formData.get('name') as string,
         description: (formData.get('description') as string) || null,
       },
     })
+    await logAudit('CATEGORY_CREATED', 'INVENTORY', String(created.id), `Categoría: ${created.name}`)
     revalidatePath('/categorias')
   } catch (error) {
     console.error('Error creating category:', error)
@@ -229,13 +231,14 @@ export async function createCategory(formData: FormData) {
 export async function updateCategory(formData: FormData) {
   const id = parseInt(formData.get('id') as string)
   try {
-    await db.category.update({
+    const updated = await db.category.update({
       where: { id },
       data: {
         name: formData.get('name') as string,
         description: (formData.get('description') as string) || null,
       },
     })
+    await logAudit('CATEGORY_UPDATED', 'INVENTORY', String(id), `Actualización: ${updated.name}`)
     revalidatePath('/categorias')
   } catch (error) {
     console.error('Error updating category:', error)
@@ -253,6 +256,7 @@ export async function deleteCategory(formData: FormData) {
       return
     }
     await db.category.delete({ where: { id } })
+    await logAudit('CATEGORY_DELETED', 'INVENTORY', String(id), `Categoría eliminada (ID: ${id})`)
     revalidatePath('/categorias')
   } catch (error) {
     console.error('Error deleting category:', error)
@@ -303,6 +307,7 @@ export async function createLocation(formData: FormData) {
       )
     }
     revalidatePath('/ubicaciones')
+    await logAudit('LOCATION_CREATED', 'INVENTORY', name, `Nueva ubicación: ${name}`)
     return { success: true }
   } catch (error: any) {
     console.error('Create location error:', error)
@@ -313,7 +318,7 @@ export async function createLocation(formData: FormData) {
 export async function updateLocation(formData: FormData) {
   const id = parseInt(formData.get('id') as string)
   try {
-    await db.location.update({
+    const updated = await db.location.update({
       where: { id },
       data: {
         name: formData.get('name') as string,
@@ -321,6 +326,7 @@ export async function updateLocation(formData: FormData) {
         description: (formData.get('description') as string) || null,
       },
     })
+    await logAudit('LOCATION_UPDATED', 'INVENTORY', String(id), `Ubicación actualizada: ${updated.name}`)
     revalidatePath('/ubicaciones')
   } catch (error) {
     console.error('Error updating location:', error)
@@ -340,6 +346,7 @@ export async function deleteLocation(formData: FormData) {
     }
 
     await db.$executeRawUnsafe(`DELETE FROM locations WHERE id = ?`, id)
+    await logAudit('LOCATION_DELETED', 'INVENTORY', String(id), `Ubicación eliminada (ID: ${id})`)
     
     revalidatePath('/ubicaciones')
     return { success: true }
@@ -353,6 +360,7 @@ export async function deletePart(formData: FormData) {
   try {
     const id = parseInt(formData.get('id') as string)
     await db.$executeRawUnsafe(`DELETE FROM parts WHERE id = ?`, id)
+    await logAudit('PART_DELETED', 'PART', String(id), `Parte eliminada (ID: ${id})`)
     revalidatePath('/partes')
     return { success: true }
   } catch (error: any) {
@@ -418,6 +426,7 @@ export async function createCustomer(formData: FormData) {
     })
   }
 
+  await logAudit('CUSTOMER_CREATED', 'CUSTOMER', customer.id, `Cliente: ${customer.name} (${type})`)
   revalidatePath('/clientes')
   redirect('/clientes')
 }
@@ -435,6 +444,7 @@ export async function updateCustomer(formData: FormData) {
       notes: (formData.get('notes') as string) || null,
     },
   })
+  await logAudit('CUSTOMER_UPDATED', 'CUSTOMER', id, `Actualización: ${formData.get('name')}`)
   revalidatePath('/clientes')
   revalidatePath(`/clientes/${id}`)
   redirect(`/clientes/${id}`)
@@ -442,7 +452,9 @@ export async function updateCustomer(formData: FormData) {
 
 export async function deleteCustomer(formData: FormData) {
   const id = formData.get('id') as string
+  const customer = await db.customer.findUnique({ where: { id }, select: { name: true } })
   await db.customer.delete({ where: { id } })
+  await logAudit('CUSTOMER_DELETED', 'CUSTOMER', id, `Cliente eliminado: ${customer?.name || id}`)
   revalidatePath('/clientes')
   redirect('/clientes')
 }
@@ -467,6 +479,7 @@ export async function createFleetUnit(formData: FormData) {
   })
   // Find the customer of this fleet
   const fleet = await db.fleet.findUnique({ where: { id: fleetId } })
+  await logAudit('FLEET_UNIT_CREATED', 'FLEET', fleetId, `Unidad añadida: ${formData.get('make')} ${formData.get('model')}`)
   revalidatePath(`/clientes/${fleet?.customerId}`)
   revalidatePath('/flotas')
 }
@@ -475,6 +488,7 @@ export async function deleteFleetUnit(formData: FormData) {
   const id = formData.get('id') as string
   const unit = await db.fleetUnit.findUnique({ where: { id }, include: { fleet: true } })
   await db.fleetUnit.delete({ where: { id } })
+  await logAudit('FLEET_UNIT_DELETED', 'FLEET', id, `Unidad eliminada: ${unit?.make} ${unit?.model} (Placa: ${unit?.plate})`)
   revalidatePath(`/clientes/${unit?.fleet?.customerId}`)
   revalidatePath('/flotas')
 }
@@ -534,6 +548,7 @@ export async function createProject(formData: FormData) {
       status: 'OPEN',
     },
   })
+  await logAudit('PROJECT_CREATED', 'PROJECT', project.id, `Proyecto ${project.projectNumber}: ${project.name}`)
   revalidatePath('/proyectos')
   redirect(`/proyectos/${project.id}`)
 }
@@ -545,13 +560,16 @@ export async function updateProjectStatus(formData: FormData) {
   if (status === 'COMPLETED') data.completedDate = new Date()
   if (status === 'IN_PROGRESS') data.startDate = new Date()
   await db.maintenanceProject.update({ where: { id }, data })
+  await logAudit('PROJECT_STATUS_CHANGED', 'PROJECT', id, `Estado actualizado a ${status}`)
   revalidatePath('/proyectos')
   revalidatePath(`/proyectos/${id}`)
 }
 
 export async function deleteProject(formData: FormData) {
   const id = formData.get('id') as string
+  const project = await db.maintenanceProject.findUnique({ where: { id }, select: { projectNumber: true } })
   await db.maintenanceProject.delete({ where: { id } })
+  await logAudit('PROJECT_DELETED', 'PROJECT', id, `Proyecto eliminado: ${project?.projectNumber || id}`)
   revalidatePath('/proyectos')
   redirect('/proyectos')
 }
@@ -571,6 +589,7 @@ export async function addProjectPart(formData: FormData) {
       notes: (formData.get('notes') as string) || null,
     },
   })
+  await logAudit('PROJECT_PART_ADDED', 'PROJECT', projectId, `Parte añadida: ${partId} x${quantity}`)
   revalidatePath(`/proyectos/${projectId}`)
 }
 
@@ -578,6 +597,9 @@ export async function removeProjectPart(formData: FormData) {
   const id = formData.get('id') as string
   const pp = await db.projectPart.findUnique({ where: { id } })
   await db.projectPart.delete({ where: { id } })
+  if (pp) {
+    await logAudit('PROJECT_PART_REMOVED', 'PROJECT', pp.projectId, `Parte removida (ID: ${pp.partId})`)
+  }
   revalidatePath(`/proyectos/${pp?.projectId}`)
 }
 
@@ -605,6 +627,7 @@ export async function completeProject(formData: FormData) {
     })
   })
 
+  await logAudit('PROJECT_COMPLETED', 'PROJECT', id, `Proyecto ${project.projectNumber} finalizado. Inventario descontado.`)
   revalidatePath('/proyectos')
   revalidatePath(`/proyectos/${id}`)
 }
@@ -672,7 +695,9 @@ export async function updateQuoteStatus(formData: FormData) {
 
 export async function deleteQuote(formData: FormData) {
   const id = formData.get('id') as string
+  const quote = await db.quote.findUnique({ where: { id }, select: { quoteNumber: true } })
   await db.quote.delete({ where: { id } })
+  await logAudit('QUOTE_DELETED', 'QUOTE', id, `Cotización eliminada: ${quote?.quoteNumber || id}`)
   revalidatePath('/cotizaciones')
   redirect('/cotizaciones')
 }
@@ -695,6 +720,7 @@ export async function addQuoteItem(formData: FormData) {
     },
   })
 
+  await logAudit('QUOTE_ITEM_ADDED', 'QUOTE', quoteId, `Parte añadida: ${formData.get('description')} x${quantity}`)
   await recalcQuote(quoteId)
   revalidatePath(`/cotizaciones/${quoteId}`)
 }
@@ -704,6 +730,7 @@ export async function removeQuoteItem(formData: FormData) {
   const item = await db.quoteItem.findUnique({ where: { id } })
   if (!item) return
   await db.quoteItem.delete({ where: { id } })
+  await logAudit('QUOTE_ITEM_REMOVED', 'QUOTE', item.quoteId, `Parte removida: ${item.description}`)
   await recalcQuote(item.quoteId)
   revalidatePath(`/cotizaciones/${item.quoteId}`)
 }
@@ -1018,4 +1045,112 @@ export async function ensureDefaultAdmin() {
     },
   })
   revalidatePath('/usuarios')
+}
+
+// ─── GESTIÓN FINANCIERA ────────────────────────────────────
+export async function getFinancialEntries() {
+  const session = await getServerSession(authOptions)
+  if (!canManageFinances(session?.user?.role)) {
+    throw new Error('No autorizado')
+  }
+  return db.financialEntry.findMany({
+    orderBy: { date: 'desc' },
+  })
+}
+
+export async function createFinancialEntry(formData: FormData) {
+  const session = await getServerSession(authOptions)
+  if (!canManageFinances(session?.user?.role)) {
+    throw new Error('No autorizado')
+  }
+
+  const type = formData.get('type') as string
+  const category = formData.get('category') as string
+  const amount = parseFloat(formData.get('amount') as string)
+  const description = formData.get('description') as string
+  const isPaid = formData.get('isPaid') === 'true'
+  const dateStr = formData.get('date') as string
+  const date = dateStr ? new Date(dateStr) : new Date()
+
+  const entry = await db.financialEntry.create({
+    data: {
+      type,
+      category,
+      amount,
+      description,
+      isPaid,
+      date,
+    },
+  })
+
+  await logAudit('FINANCIAL_CREATED', 'FINANCIAL', entry.id, `${type}: ${description} (${amount})`)
+  revalidatePath('/reportes/finanzas')
+  return { success: true }
+}
+
+export async function deleteFinancialEntry(formData: FormData) {
+  const session = await getServerSession(authOptions)
+  if (!canManageFinances(session?.user?.role)) {
+    throw new Error('No autorizado')
+  }
+
+  const id = formData.get('id') as string
+  const entry = await db.financialEntry.findUnique({ where: { id } })
+  
+  if (entry) {
+    await db.financialEntry.delete({ where: { id } })
+    await logAudit('FINANCIAL_DELETED', 'FINANCIAL', id, `Eliminado: ${entry.description}`)
+  }
+
+  revalidatePath('/reportes/finanzas')
+  return { success: true }
+}
+
+export async function updateFinancialEntry(formData: FormData) {
+  const session = await getServerSession(authOptions)
+  if (!canManageFinances(session?.user?.role)) {
+    throw new Error('No autorizado')
+  }
+
+  const id = formData.get('id') as string
+  const type = formData.get('type') as string
+  const category = formData.get('category') as string
+  const amount = parseFloat(formData.get('amount') as string)
+  const description = formData.get('description') as string
+  const isPaid = formData.get('isPaid') === 'true'
+  const dateStr = formData.get('date') as string
+  const date = dateStr ? new Date(dateStr) : new Date()
+
+  await db.financialEntry.update({
+    where: { id },
+    data: {
+      type,
+      category,
+      amount,
+      description,
+      isPaid,
+      date,
+    },
+  })
+
+  revalidatePath('/reportes/finanzas')
+  return { success: true }
+}
+
+export async function toggleFinancialPaid(formData: FormData) {
+  const session = await getServerSession(authOptions)
+  if (!canManageFinances(session?.user?.role)) {
+    throw new Error('No autorizado')
+  }
+
+  const id = formData.get('id') as string
+  const isPaid = formData.get('isPaid') === 'true'
+
+  await db.financialEntry.update({
+    where: { id },
+    data: { isPaid },
+  })
+
+  revalidatePath('/reportes/finanzas')
+  return { success: true }
 }
