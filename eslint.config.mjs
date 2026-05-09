@@ -21,6 +21,7 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    "server.js",
     // Custom ignores for data scripts:
     "add-data.*",
     "seed-simple.*",
