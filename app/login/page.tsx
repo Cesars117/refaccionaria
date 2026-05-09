@@ -30,11 +30,13 @@ export default function LoginPage() {
         } else {
           setError(`No se pudo iniciar sesión (${result.error})`)
         }
+      } else if (result?.ok) {
+        window.location.href = '/'
       } else {
-        router.push('/')
+        setError('Respuesta desconocida del servidor')
       }
-    } catch {
-      setError('Algo salió mal')
+    } catch (err: any) {
+      setError(`Algo salió mal: ${err?.message || 'Error desconocido'}`)
     } finally {
       setLoading(false)
     }
