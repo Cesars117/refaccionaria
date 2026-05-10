@@ -141,10 +141,12 @@ export default function Sidebar() {
         </div>
         <button
           type="button"
-          onClick={() => {
+          onClick={async () => {
             const url = new URL('/login', window.location.origin);
             url.searchParams.set('callbackUrl', '/');
-            signOut({ callbackUrl: url.toString() });
+            const targetUrl = url.toString();
+            await signOut({ redirect: false, callbackUrl: targetUrl });
+            window.location.href = targetUrl;
           }}
           className="mt-4 flex w-full items-center justify-center gap-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs font-semibold text-red-700 transition-colors hover:bg-red-100"
         >
