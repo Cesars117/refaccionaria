@@ -1,6 +1,7 @@
 import { PrismaClient } from '@prisma/client';
 import fs from 'fs';
 import path from 'path';
+import { fileURLToPath } from 'url';
 
 const prisma = new PrismaClient();
 
@@ -177,7 +178,8 @@ restoreBackup().catch(console.error);
 }
 
 // Ejecutar backup si se llama directamente
-if (import.meta.url === `file://${process.argv[1]}`) {
+const currentFilePath = fileURLToPath(import.meta.url);
+if (process.argv[1] && path.resolve(process.argv[1]) === currentFilePath) {
   createBackup().then(result => {
     if (!result.success) {
       process.exit(1);
