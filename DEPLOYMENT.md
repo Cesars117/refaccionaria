@@ -1,45 +1,29 @@
-# Configuración de Deployment con GitHub Actions
+# Configuración de Deployment
 
-Este proyecto usa GitHub Actions para desplegar automáticamente a Vercel.
+Este proyecto se despliega manualmente a Hostinger usando el paquete `deploy.zip` y la carpeta `.next/standalone`.
 
-## 📋 Requisitos
+## 🛠️ Flujo de deploy Hostinger
 
-### Para Vercel:
-1. Ve a https://vercel.com/account/tokens
-2. Crea un token personal (cópialo)
-3. En tu repo GitHub:
-   - Settings → Secrets and variables → Actions
-   - Agrega estos secrets:
-     - `VERCEL_TOKEN`: Tu token de Vercel
-     - `VERCEL_ORG_ID`: Tu organization ID (visible en Vercel dashboard)
-     - `VERCEL_PROJECT_ID`: El project ID (en Vercel project settings)
-
-## 🚀 Flujo de Deploy Automático
-
-1. **Haces push a `main`**
+1. Genera el build localmente:
    ```bash
-   git push origin main
+   npm install
+   npm run build
    ```
 
-2. **GitHub Actions ejecuta:**
-   - ✅ Build y lint
-   - ✅ Deploy a Vercel (automático)
+2. Empaqueta el contenido de `.next/standalone` y los archivos necesarios para el servidor.
 
-3. **Verificas:**
-   - Vercel: https://tuapp.vercel.app
+3. Sube `deploy.zip` a la ruta de Hostinger indicada en los scripts de deploy.
 
-## 📝 Notas
+4. En el servidor de Hostinger, asegúrate de tener la siguiente configuración en `.env.production`:
+   - `DATABASE_URL` apuntando al MySQL de Hostinger
+   - `NEXTAUTH_URL` al dominio de la app
+   - `NEXTAUTH_SECRET`
 
-- Los deploys solo ocurren en push a `main` (no en PRs)
-- Cada push gatilla ambos deploys simultáneamente
-- Si uno falla, el otro continúa
-- Puedes ver logs en Actions tab del repo
+5. Reinicia la app en el panel de Hostinger o mediante el script de deploy.
 
-## 🔄 Próximos pasos (Seguridad)
+## 🔧 Notas importantes
 
-Cuando implementes seguridad, considera:
-- Firmar commits (GPG)
-- Branch protection rules
-- Require status checks before merge
-- Environments con approval para prod
-- Secrets encryption y rotación
+- El flujo actual ya no usa Vercel.
+- El deploy en Hostinger debe ejecutarse con `npm install --omit=dev` para no instalar dependencias de desarrollo.
+- `@prisma/client` debe estar en `dependencies` y no solo en `devDependencies` para que la app funcione en producción.
+- Si se actualiza el esquema Prisma, ejecuta `npx prisma migrate deploy` en el servidor prod.
