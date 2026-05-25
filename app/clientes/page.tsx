@@ -49,47 +49,49 @@ export default async function ClientesPage() {
             Sin clientes. <Link href="/clientes/nuevo" className="text-brand-600">Agrega uno.</Link>
           </div>
         ) : (
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="table-header px-6 py-3">Nombre</th>
-                <th className="table-header px-4 py-3">Tipo</th>
-                <th className="table-header px-4 py-3">Teléfono</th>
-                <th className="table-header px-4 py-3">Cotizaciones</th>
-                <th className="table-header px-4 py-3">Flota</th>
-                <th className="px-4 py-3" />
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-100 bg-white">
-              {customers.map((c) => (
-                <tr key={c.id} className="hover:bg-gray-50">
-                  <td className="px-6 py-3">
-                    <p className="text-sm font-medium text-gray-900">{c.name}</p>
-                    {c.email && <p className="text-xs text-gray-400">{c.email}</p>}
-                  </td>
-                  <td className="px-4 py-3">
-                    <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${
-                      c.type === 'FLEET' ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700'
-                    }`}>
-                      {c.type === 'FLEET' ? 'Flota' : 'Retail'}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3 text-sm text-gray-600">{c.phone}</td>
-                  <td className="px-4 py-3 text-sm text-gray-600">{c._count.quotes}</td>
-                  <td className="px-4 py-3 text-sm text-gray-600">
-                    {c.fleet ? (
-                      <span>{c.fleet._count.units} unidades</span>
-                    ) : '—'}
-                  </td>
-                  <td className="px-4 py-3 text-right">
-                    <Link href={`/clientes/${c.id}`} className="text-sm text-brand-600 hover:text-brand-800 font-medium">
-                      Ver
-                    </Link>
-                  </td>
+          <div className="overflow-x-auto w-full">
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="table-header px-6 py-3">Nombre</th>
+                  <th className="table-header px-4 py-3">Tipo</th>
+                  <th className="table-header px-4 py-3">Teléfono</th>
+                  <th className="table-header px-4 py-3">Cotizaciones</th>
+                  <th className="table-header px-4 py-3">Flota</th>
+                  <th className="px-4 py-3" />
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody className="divide-y divide-gray-100 bg-white">
+                {customers.map((c) => (
+                  <tr key={c.id} className="hover:bg-gray-50">
+                    <td className="px-6 py-3">
+                      <p className="text-sm font-medium text-gray-900">{c.name}</p>
+                      {c.email && <p className="text-xs text-gray-400">{c.email}</p>}
+                    </td>
+                    <td className="px-4 py-3">
+                      <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${
+                        c.type === 'FLEET' ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700'
+                      }`}>
+                        {c.type === 'FLEET' ? 'Flota' : 'Retail'}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 text-sm text-gray-600">{c.phone}</td>
+                    <td className="px-4 py-3 text-sm text-gray-600">{c._count.quotes}</td>
+                    <td className="px-4 py-3 text-sm text-gray-600">
+                      {c.fleet ? (
+                        <span>{c.fleet._count.units} unidades</span>
+                      ) : '—'}
+                    </td>
+                    <td className="px-4 py-3 text-right">
+                      <Link href={`/clientes/${c.id}`} className="text-sm text-brand-600 hover:text-brand-800 font-medium">
+                        Ver
+                      </Link>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         )}
       </div>
     </div>

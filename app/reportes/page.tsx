@@ -4,13 +4,20 @@ import { Package, Users, FileText, AlertTriangle, TrendingUp } from 'lucide-reac
 import Link from 'next/link';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
-import { canViewRevenue } from '@/lib/rbac';
+import { canViewRevenue, canManageFinances } from '@/lib/rbac';
+import { redirect } from 'next/navigation';
 
 export const dynamic = 'force-dynamic';
 
 export default async function ReportesPage() {
   const session = await getServerSession(authOptions);
-  const allowRevenue = canViewRevenue(session?.user?.role);
+  const role = session?.user?.role;
+
+  if (!canManageFinances(role)) {
+    redirect('/');
+  }
+
+  const allowRevenue = canViewRevenue(role);
 
   const [
     partCount,

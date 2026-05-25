@@ -56,7 +56,7 @@ const navSections: NavSection[] = [
   {
     label: 'REPORTES',
     items: [
-      { name: 'Reportes', href: '/reportes', icon: TrendingUp },
+      { name: 'Reportes', href: '/reportes', icon: TrendingUp, requiresAdmin: true },
       { name: 'Auditoría', href: '/auditoria', icon: ClipboardList, requiresAudit: true },
     ],
   },
