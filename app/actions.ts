@@ -27,6 +27,15 @@ async function requireAdminUser() {
   return user
 }
 
+async function requireAdminOrFinanceUser() {
+  const user = await getSessionUser()
+  if (!canManageFinances(user.role)) {
+    throw new Error('No autorizado: solo admin o super admin')
+  }
+  await ensureSchemaRepair()
+  return user
+}
+
 async function ensureSchemaRepair() {
   // Auto-reparación silenciosa del esquema
   try {
@@ -141,7 +150,7 @@ export async function getPartById(id: number) {
 }
 
 export async function createPart(formData: FormData) {
-  await requireAdminUser()
+  await requireAdminOrFinanceUser()
   const name = formData.get('name') as string
   const categoryId = parseInt(formData.get('categoryId') as string)
   const locationId = parseInt(formData.get('locationId') as string)

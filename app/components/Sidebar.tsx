@@ -20,13 +20,14 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { signOut, useSession } from 'next-auth/react';
-import { canManageUsers, canViewAudit } from '@/lib/rbac';
+import { canManageUsers, canViewAudit, canManageFinances } from '@/lib/rbac';
 
 interface NavItem {
   name: string;
   href: string;
   icon: any;
   requiresAdmin?: boolean;
+  requiresSuperAdmin?: boolean;
   requiresAudit?: boolean;
 }
 
@@ -63,7 +64,7 @@ const navSections: NavSection[] = [
   {
     label: 'ADMIN',
     items: [
-      { name: 'Usuarios', href: '/usuarios', icon: Shield, requiresAdmin: true },
+      { name: 'Usuarios', href: '/usuarios', icon: Shield, requiresSuperAdmin: true },
     ],
   },
 ];
@@ -77,7 +78,8 @@ export default function Sidebar() {
     .map((section) => ({
       ...section,
       items: section.items.filter((item) => {
-        if (item.requiresAdmin && !canManageUsers(userRole)) return false;
+        if (item.requiresSuperAdmin && !canManageUsers(userRole)) return false;
+        if (item.requiresAdmin && !canManageFinances(userRole)) return false;
         if (item.requiresAudit && !canViewAudit(userRole)) return false;
         return true;
       }),
