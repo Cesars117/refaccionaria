@@ -63,12 +63,8 @@ export default function EditParteForm({
           <input name="name" required defaultValue={part.name} className="input-field" />
         </div>
         <div>
-          <label className="label-field">SKU</label>
+          <label className="label-field">Código</label>
           <input name="sku" defaultValue={part.sku ?? ''} className="input-field" />
-        </div>
-        <div>
-          <label className="label-field">Número OEM</label>
-          <input name="oemNumber" defaultValue={part.oemNumber ?? ''} className="input-field" />
         </div>
         <div>
           <label className="label-field">Marca</label>
@@ -104,10 +100,7 @@ export default function EditParteForm({
           <label className="label-field">Precio público (MXN)</label>
           <input name="price" type="number" step="0.01" min="0" defaultValue={part.price} className="input-field" />
         </div>
-        <div>
-          <label className="label-field">Precio flota (MXN)</label>
-          <input name="priceFleet" type="number" step="0.01" min="0" defaultValue={part.priceFleet ?? ''} className="input-field" />
-        </div>
+
         <div>
           <label className="label-field">Costo (MXN)</label>
           <input name="cost" type="number" step="0.01" min="0" defaultValue={part.cost} className="input-field" />

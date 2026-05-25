@@ -109,7 +109,7 @@ export default function PartesPage() {
             <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
               <tr>
-                <th className="table-header px-6 py-3">Nombre / SKU</th>
+                <th className="table-header px-6 py-3">Nombre / Código</th>
                 <th className="table-header px-4 py-3">Categoría</th>
                 <th className="table-header px-4 py-3">Ubicación</th>
                 <th className="table-header px-4 py-3 text-right">Stock</th>
@@ -128,7 +128,7 @@ export default function PartesPage() {
                       <div>
                         <p className="text-sm font-medium text-gray-900">{p.name}</p>
                         <p className="text-xs text-gray-400">
-                          {p.sku ? `SKU: ${p.sku}` : ''}
+                          {p.sku ? `Código: ${p.sku}` : ''}
                           {p.sku && p.brand ? ' · ' : ''}
                           {p.brand ?? ''}
                         </p>

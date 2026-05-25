@@ -33,12 +33,8 @@ export default function NuevaParteForm({ categories, locations }: Props) {
             <input name="name" required className="input-field" placeholder="Ej: Balata delantera" />
           </div>
           <div>
-            <label className="label-field">SKU</label>
+            <label className="label-field">Código</label>
             <input name="sku" className="input-field" placeholder="Ej: BAL-001" />
-          </div>
-          <div>
-            <label className="label-field">Número OEM</label>
-            <input name="oemNumber" className="input-field" placeholder="Ej: 45022-SDA-A01" />
           </div>
           <div>
             <label className="label-field">Código de barras</label>
@@ -70,10 +66,7 @@ export default function NuevaParteForm({ categories, locations }: Props) {
             <label className="label-field">Precio público</label>
             <input name="price" type="number" step="0.01" min="0" defaultValue="0" className="input-field" />
           </div>
-          <div>
-            <label className="label-field">Precio flota</label>
-            <input name="priceFleet" type="number" step="0.01" min="0" className="input-field" placeholder="Opcional" />
-          </div>
+
           <div>
             <label className="label-field">Stock actual</label>
             <input name="quantity" type="number" min="0" defaultValue="0" className="input-field" />
