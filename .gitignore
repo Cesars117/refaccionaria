@@ -25,3 +25,6 @@ temp-*.js
 check-*.js
 quick-entry.js
 restore-*.js
+
+deploy.zip
+standalone_temp/
