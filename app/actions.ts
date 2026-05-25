@@ -393,6 +393,29 @@ export async function deletePart(formData: FormData) {
   try {
     await requireInventoryManager()
     const id = parseInt(formData.get('id') as string)
+
+    // Verificar si la parte está siendo usada en alguna cotización
+    const usedInQuotes = await db.quoteItem.findFirst({
+      where: { partId: id },
+      include: { quote: { select: { quoteNumber: true } } }
+    })
+
+    if (usedInQuotes) {
+      return {
+        success: false,
+        error: `No se puede eliminar: esta parte está en uso en la cotización ${usedInQuotes.quote.quoteNumber}. Elimínala de la cotización primero.`
+      }
+    }
+
+    // También verificar en proyectos de mantenimiento
+    const usedInProjects = await db.projectPart.findFirst({ where: { partId: id } })
+    if (usedInProjects) {
+      return {
+        success: false,
+        error: 'No se puede eliminar: esta parte está en uso en un proyecto de mantenimiento.'
+      }
+    }
+
     await db.$executeRawUnsafe(`DELETE FROM parts WHERE id = ?`, id)
     await logAudit('PART_DELETED', 'PART', String(id), `Parte eliminada (ID: ${id})`)
     revalidatePath('/partes')
@@ -402,6 +425,7 @@ export async function deletePart(formData: FormData) {
     return { success: false, error: error.message }
   }
 }
+
 
 // ─── CUSTOMERS ────────────────────────────────────────────
 export async function getCustomers(type?: string) {
@@ -689,10 +713,11 @@ export async function getQuoteById(id: string) {
     where: { id },
     include: {
       customer: true,
-      items: { include: { part: { include: { category: true } } } },
+      items: { include: { part: { include: { category: true, location: true } } } },
     },
   })
 }
+
 
 export async function createQuote(formData: FormData) {
   const customerId = formData.get('customerId') as string
@@ -1367,7 +1392,7 @@ export async function toggleFinancialPaid(formData: FormData) {
 export async function checkQuoteStock(quoteId: string) {
   const quote = await db.quote.findUnique({
     where: { id: quoteId },
-    include: { items: { include: { part: true } } },
+    include: { items: { include: { part: { include: { location: true } } } } },
   })
 
   if (!quote) return { success: false, error: 'Cotización no encontrada' }
@@ -1379,9 +1404,15 @@ export async function checkQuoteStock(quoteId: string) {
   const missingItems: string[] = []
 
   for (const item of quote.items) {
-    if (item.part.quantity < item.quantity) {
+    // Si la parte está en ubicación de catálogo/proveedor, siempre se pide al proveedor
+    const isFromCatalog = item.part.location?.name === 'Proveedor (Catálogo)'
+    if (isFromCatalog || item.part.quantity < item.quantity) {
       hasAllStock = false
-      missingItems.push(`${item.description} (Requerido: ${item.quantity}, Disponible: ${item.part.quantity})`)
+      if (isFromCatalog) {
+        missingItems.push(`${item.description} (Pedido a Proveedor - Catálogo Tienda)`)
+      } else {
+        missingItems.push(`${item.description} (Requerido: ${item.quantity}, Disponible: ${item.part.quantity})`)
+      }
     }
   }
 
@@ -1399,7 +1430,7 @@ export async function confirmQuoteFulfillment(formData: FormData) {
 
   const quote = await db.quote.findUnique({
     where: { id: quoteId },
-    include: { items: { include: { part: true } } },
+    include: { items: { include: { part: { include: { location: true } } } } },
   })
 
   if (!quote) return { success: false, error: 'Cotización no encontrada' }
@@ -1412,9 +1443,14 @@ export async function confirmQuoteFulfillment(formData: FormData) {
   const missingItems: string[] = []
 
   for (const item of quote.items) {
-    if (item.part.quantity < item.quantity) {
+    const isFromCatalog = item.part.location?.name === 'Proveedor (Catálogo)'
+    if (isFromCatalog || item.part.quantity < item.quantity) {
       hasAllStock = false
-      missingItems.push(`${item.description} (Requerido: ${item.quantity}, Disponible: ${item.part.quantity})`)
+      if (isFromCatalog) {
+        missingItems.push(`${item.description} (Pedido a Proveedor - Catálogo Tienda)`)
+      } else {
+        missingItems.push(`${item.description} (Requerido: ${item.quantity}, Disponible: ${item.part.quantity})`)
+      }
     }
   }
 
