@@ -319,6 +319,7 @@ model DeliveryStop {
   details         String
   paymentStatus   String        // "PAID", "COLLECT"
   amountToCollect Float         @default(0)
+  paymentMethod   String?       // "EFECTIVO", "TARJETA", "TRANSFERENCIA"
   status          String        @default("PENDING") // "PENDING", "COMPLETED", "FAILED"
   failedReason    String?
   eta             DateTime?

@@ -207,15 +207,23 @@ export async function updatePart(formData: FormData) {
     const oemNumber = (formData.get('oemNumber') as string) || ''
     const description = (formData.get('description') as string) || ''
 
-    // Bypass Prisma COMPLETELY for the update
-    await db.$executeRaw`
-      UPDATE parts 
-      SET name=${name}, categoryId=${categoryId}, locationId=${locationId}, 
-          quantity=${quantity}, minStock=${minStock}, price=${price}, 
-          cost=${cost}, brand=${brand}, sku=${sku}, oemNumber=${oemNumber}, 
-          description=${description}, updatedAt=datetime('now')
-      WHERE id=${id}
-    `
+    // Usar Prisma para máxima compatibilidad con SQLite y MariaDB
+    await db.part.update({
+      where: { id },
+      data: {
+        name,
+        categoryId,
+        locationId,
+        quantity,
+        minStock,
+        price,
+        cost,
+        brand: brand || null,
+        sku: sku || null,
+        oemNumber: oemNumber || null,
+        description: description || null,
+      }
+    })
     await logAudit('PART_UPDATED', 'PART', String(id), `Actualización: ${name}`)
     revalidatePath('/partes')
     return { success: true }
@@ -981,13 +989,13 @@ export async function createUserAccount(formData: FormData) {
     try {
       await db.$executeRaw`
         INSERT INTO users (id, username, email, password, name, role, isActive, createdAt, updatedAt)
-        VALUES (${newId}, ${username}, ${email}, ${hashedPassword}, ${name}, ${role}, 1, datetime('now'), datetime('now'))
+        VALUES (${newId}, ${username}, ${email}, ${hashedPassword}, ${name}, ${role}, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
       `
     } catch (sqlError) {
       console.error('Raw SQL insert with username failed, trying without:', sqlError)
       await db.$executeRaw`
         INSERT INTO users (id, email, password, name, role, isActive, createdAt, updatedAt)
-        VALUES (${newId}, ${email}, ${hashedPassword}, ${name}, ${role}, 1, datetime('now'), datetime('now'))
+        VALUES (${newId}, ${email}, ${hashedPassword}, ${name}, ${role}, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
       `
     }
     created = { id: newId, username, email }
@@ -1011,7 +1019,7 @@ export async function updateUserRole(formData: FormData) {
   } catch {
     await db.$executeRaw`
       UPDATE users
-      SET role = ${role}, updatedAt = datetime('now')
+      SET role = ${role}, updatedAt = CURRENT_TIMESTAMP
       WHERE id = ${id}
     `
   }
@@ -1034,7 +1042,7 @@ export async function updateUserStatus(formData: FormData) {
   } catch {
     await db.$executeRaw`
       UPDATE users
-      SET isActive = ${isActive ? 1 : 0}, updatedAt = datetime('now')
+      SET isActive = ${isActive ? 1 : 0}, updatedAt = CURRENT_TIMESTAMP
       WHERE id = ${id}
     `
   }
@@ -1059,7 +1067,7 @@ export async function resetUserPassword(formData: FormData) {
   } catch {
     await db.$executeRaw`
       UPDATE users
-      SET password = ${hashedPassword}, updatedAt = datetime('now')
+      SET password = ${hashedPassword}, updatedAt = CURRENT_TIMESTAMP
       WHERE id = ${id}
     `
   }
@@ -1091,7 +1099,7 @@ export async function updateUserAccount(formData: FormData) {
       // Try with username
       await db.$executeRaw`
         UPDATE users
-        SET username = ${username}, name = ${name}, email = ${email}, updatedAt = datetime('now')
+        SET username = ${username}, name = ${name}, email = ${email}, updatedAt = CURRENT_TIMESTAMP
         WHERE id = ${id}
       `
     } catch (sqlError) {
@@ -1099,7 +1107,7 @@ export async function updateUserAccount(formData: FormData) {
       // Try without username (maybe column missing)
       await db.$executeRaw`
         UPDATE users
-        SET name = ${name}, email = ${email}, updatedAt = datetime('now')
+        SET name = ${name}, email = ${email}, updatedAt = CURRENT_TIMESTAMP
         WHERE id = ${id}
       `
     }
@@ -1512,12 +1520,13 @@ export async function updateDriverGPS(driverId: string, latitude: number, longit
   return { success: true }
 }
 
-export async function updateStopStatus(stopId: string, status: 'COMPLETED' | 'FAILED', failedReason?: string) {
+export async function updateStopStatus(stopId: string, status: 'COMPLETED' | 'FAILED', failedReason?: string, paymentMethod?: string) {
   const stop = await db.deliveryStop.update({
     where: { id: stopId },
     data: {
       status,
       failedReason: failedReason || null,
+      paymentMethod: paymentMethod || null,
       completedAt: new Date()
     }
   })
@@ -1544,7 +1553,12 @@ export async function updateStopStatus(stopId: string, status: 'COMPLETED' | 'FA
         where: { id: stop.quoteId },
         data: { fulfillmentStatus: 'COMPLETED' }
       })
-      await logAudit('FULFILLMENT_COMPLETED', 'QUOTE', stop.quoteId, `Entrega completada por el chofer al cliente.`)
+      await logAudit(
+        'FULFILLMENT_COMPLETED', 
+        'QUOTE', 
+        stop.quoteId, 
+        `Entrega completada por el chofer al cliente.${paymentMethod ? ` Método de pago: ${paymentMethod}.` : ''}`
+      )
     }
   }
 

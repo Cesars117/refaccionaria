@@ -104,6 +104,14 @@ async function run() {
     console.log('Error creating delivery_stops:', e.message);
   }
 
+  // 4b. Alter delivery_stops if already exists but paymentMethod is missing
+  try {
+    await prisma.$executeRawUnsafe(`ALTER TABLE delivery_stops ADD COLUMN paymentMethod VARCHAR(191) NULL`);
+    console.log('Added delivery_stops.paymentMethod column');
+  } catch (e) {
+    console.log('delivery_stops.paymentMethod might already exist:', e.message);
+  }
+
   console.log('Custom migration finished.');
   await prisma.$disconnect();
 }

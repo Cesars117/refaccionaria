@@ -20,18 +20,21 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: false, error: 'ID y Nombre son obligatorios' }, { status: 400 });
     }
 
-    // Usar SQL puro para máxima compatibilidad
-    await db.$executeRawUnsafe(
-      `UPDATE parts SET 
-        name=?, sku=?, brand=?, oemNumber=?, price=?, quantity=?, 
-        categoryId=?, locationId=?, description=?, 
-        updatedAt=datetime('now') 
-      WHERE id=?`,
-      name, sku || '', brand || '', oemNumber || '', 
-      parseFloat(price) || 0, parseInt(quantity) || 0, 
-      parseInt(categoryId) || 1, parseInt(locationId) || 1, 
-      description || '', parseInt(id)
-    );
+    // Usar Prisma para máxima compatibilidad con SQLite y MariaDB
+    await db.part.update({
+      where: { id: parseInt(id) },
+      data: {
+        name,
+        sku: sku || null,
+        brand: brand || null,
+        oemNumber: oemNumber || null,
+        price: parseFloat(price) || 0,
+        quantity: parseInt(quantity) || 0,
+        categoryId: parseInt(categoryId) || 1,
+        locationId: parseInt(locationId) || 1,
+        description: description || null,
+      }
+    });
 
     // Intentar revalidar (si falla, no importa)
     try {

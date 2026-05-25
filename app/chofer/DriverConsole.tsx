@@ -50,6 +50,8 @@ export default function DriverConsole({
   const [failedReason, setFailedReason] = useState('');
   const [updatingEtaStopId, setUpdatingEtaStopId] = useState<string | null>(null);
   const [etaMinutes, setEtaMinutes] = useState('15');
+  const [completingStop, setCompletingStop] = useState<{ id: string; amount: number } | null>(null);
+  const [paymentMethod, setPaymentMethod] = useState<'EFECTIVO' | 'TARJETA' | 'TRANSFERENCIA'>('EFECTIVO');
 
   // GPS Broadcaster: Obtener y transmitir ubicación periódicamente
   useEffect(() => {
@@ -130,11 +132,22 @@ export default function DriverConsole({
     };
   }, [driverId]);
 
-  const handleCompleteStop = (stopId: string) => {
+  const handleCompleteStopClick = (stop: Stop) => {
+    if (stop.paymentStatus === 'COLLECT' && stop.amountToCollect > 0) {
+      setCompletingStop({ id: stop.id, amount: stop.amountToCollect });
+      setFailingStopId(null);
+      setUpdatingEtaStopId(null);
+    } else {
+      handleCompleteStopSubmit(stop.id);
+    }
+  };
+
+  const handleCompleteStopSubmit = (stopId: string, method?: string) => {
     startTransition(async () => {
       try {
-        const result = await updateStopStatus(stopId, 'COMPLETED');
+        const result = await updateStopStatus(stopId, 'COMPLETED', undefined, method);
         if (result.success) {
+          setCompletingStop(null);
           router.refresh();
         }
       } catch (err: any) {
@@ -403,7 +416,7 @@ export default function DriverConsole({
 
                         <div className="grid grid-cols-2 gap-2">
                           <button
-                            onClick={() => handleCompleteStop(stop.id)}
+                            onClick={() => handleCompleteStopClick(stop)}
                             disabled={isPending}
                             className="py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 transition-colors"
                           >
@@ -414,6 +427,7 @@ export default function DriverConsole({
                             onClick={() => {
                               setFailingStopId(failingStopId === stop.id ? null : stop.id);
                               setUpdatingEtaStopId(null);
+                              setCompletingStop(null);
                             }}
                             className="py-2 bg-red-900/30 hover:bg-red-900/50 text-red-400 rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 border border-red-900/40 transition-colors"
                           >
@@ -422,11 +436,72 @@ export default function DriverConsole({
                           </button>
                         </div>
 
+                        {/* Inline Form: PAYMENT METHOD */}
+                        {completingStop?.id === stop.id && (
+                          <div className="p-3 bg-slate-900 rounded-lg border border-slate-800 space-y-2 animate-in fade-in slide-in-from-top-1 text-left">
+                            <label className="text-[10px] text-green-400 font-bold uppercase">Registrar cobro de {formatCurrency(stop.amountToCollect)}:</label>
+                            <div className="grid grid-cols-3 gap-1.5 pt-1">
+                              <button
+                                type="button"
+                                onClick={() => setPaymentMethod('EFECTIVO')}
+                                className={cn(
+                                  "py-1.5 px-2 rounded-md font-bold text-[10px] border transition-all text-center",
+                                  paymentMethod === 'EFECTIVO'
+                                    ? "bg-green-600 border-green-500 text-white font-black"
+                                    : "bg-slate-800 border-slate-700 text-slate-300"
+                                )}
+                              >
+                                Efectivo
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setPaymentMethod('TARJETA')}
+                                className={cn(
+                                  "py-1.5 px-2 rounded-md font-bold text-[10px] border transition-all text-center",
+                                  paymentMethod === 'TARJETA'
+                                    ? "bg-green-600 border-green-500 text-white font-black"
+                                    : "bg-slate-800 border-slate-700 text-slate-300"
+                                )}
+                              >
+                                Tarjeta (MP)
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setPaymentMethod('TRANSFERENCIA')}
+                                className={cn(
+                                  "py-1.5 px-2 rounded-md font-bold text-[10px] border transition-all text-center",
+                                  paymentMethod === 'TRANSFERENCIA'
+                                    ? "bg-green-600 border-green-500 text-white font-black"
+                                    : "bg-slate-800 border-slate-700 text-slate-300"
+                                )}
+                              >
+                                Transfer
+                              </button>
+                            </div>
+                            <div className="flex gap-2 pt-1.5">
+                              <button
+                                onClick={() => handleCompleteStopSubmit(stop.id, paymentMethod)}
+                                disabled={isPending}
+                                className="flex-1 py-1.5 bg-green-600 hover:bg-green-700 text-white rounded-md text-xs font-bold"
+                              >
+                                Confirmar y Completar
+                              </button>
+                              <button
+                                onClick={() => setCompletingStop(null)}
+                                className="py-1.5 px-3 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-md text-xs font-semibold"
+                              >
+                                Cancelar
+                              </button>
+                            </div>
+                          </div>
+                        )}
+
                         {/* ETA Update toggle */}
                         <button
                           onClick={() => {
                             setUpdatingEtaStopId(updatingEtaStopId === stop.id ? null : stop.id);
                             setFailingStopId(null);
+                            setCompletingStop(null);
                           }}
                           className="text-center text-[10px] text-slate-500 hover:text-slate-300 font-semibold"
                         >
