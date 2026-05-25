@@ -231,7 +231,7 @@ export default function QuoteFulfillmentCard({ quote }: { quote: any }) {
                 <div>
                   <h4 className="font-bold text-amber-900 text-sm">Falta existencias locales</h4>
                   <p className="text-xs text-amber-700 mt-0.5">
-                    Este pedido no cuenta con existencias locales en "partes". Requiere ser solicitado con el proveedor.
+                    Este pedido no cuenta con existencias locales en &apos;partes&apos;. Requiere ser solicitado con el proveedor.
                   </p>
                 </div>
               </div>

@@ -152,18 +152,7 @@ export default function DispatchConsole({
     document.body.appendChild(jsScript);
   }, []);
 
-  // Puente para que los popups del mapa (HTML crudo) puedan invocar acciones de React
-  useEffect(() => {
-    (window as any).addStopFromMap = (quoteId: string, type: string) => {
-      const quote = [...initialDeliveries, ...initialPickups].find((q) => q.id === quoteId);
-      if (quote) {
-        addStop(quote, type as any);
-      }
-    };
-    return () => {
-      delete (window as any).addStopFromMap;
-    };
-  }, [initialDeliveries, initialPickups, stops]);
+
 
   // Inicializar y actualizar elementos del mapa
   useEffect(() => {
@@ -395,7 +384,7 @@ export default function DispatchConsole({
     printWindow.document.close();
   };
 
-  const addStop = (quote: Quote, type: 'PICKUP_PROVIDER' | 'DELIVERY_CUSTOMER') => {
+  function addStop(quote: Quote, type: 'PICKUP_PROVIDER' | 'DELIVERY_CUSTOMER') {
     if (stops.some((s) => s.quoteId === quote.id && s.type === type)) {
       return;
     }
@@ -421,7 +410,20 @@ export default function DispatchConsole({
     };
 
     setStops([...stops, newStop]);
-  };
+  }
+
+  // Puente para que los popups del mapa (HTML crudo) puedan invocar acciones de React
+  useEffect(() => {
+    (window as any).addStopFromMap = (quoteId: string, type: string) => {
+      const quote = [...initialDeliveries, ...initialPickups].find((q) => q.id === quoteId);
+      if (quote) {
+        addStop(quote, type as any);
+      }
+    };
+    return () => {
+      delete (window as any).addStopFromMap;
+    };
+  }, [initialDeliveries, initialPickups, stops]);
 
   const removeStop = (index: number) => {
     const updated = [...stops];
@@ -726,7 +728,7 @@ export default function DispatchConsole({
                 <div className="h-full flex flex-col items-center justify-center text-center text-gray-400 p-6 border-2 border-dashed border-gray-200 rounded-lg">
                   <Navigation size={32} className="text-gray-300 mb-2 animate-pulse" />
                   <p className="text-xs font-bold text-gray-500">Ruta Vacía</p>
-                  <p className="text-[10px] text-gray-400 mt-1">Presiona el botón "+" o haz clic en las bolitas blancas del mapa.</p>
+                  <p className="text-[10px] text-gray-400 mt-1">Presiona el botón &apos;+&apos; o haz clic en las bolitas blancas del mapa.</p>
                 </div>
               ) : (
                 stops.map((stop, index) => {
