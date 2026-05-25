@@ -55,6 +55,7 @@ async function run() {
         id VARCHAR(191) NOT NULL PRIMARY KEY,
         driverId VARCHAR(191) NULL,
         status VARCHAR(191) NOT NULL DEFAULT 'PENDING',
+        startAddress VARCHAR(191) NOT NULL DEFAULT 'Av. Norte y Coahuila #58, Dolores Hidalgo, GTO (Nuestra Sucursal)',
         createdAt DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
         updatedAt DATETIME(3) NOT NULL,
         CONSTRAINT fk_driver FOREIGN KEY (driverId) REFERENCES users(id) ON DELETE SET NULL
@@ -63,6 +64,14 @@ async function run() {
     console.log('Created delivery_routes table');
   } catch (e) {
     console.log('Error creating delivery_routes:', e.message);
+  }
+
+  // 3b. Alter delivery_routes if already exists but column is missing
+  try {
+    await prisma.$executeRawUnsafe(`ALTER TABLE delivery_routes ADD COLUMN startAddress VARCHAR(191) NOT NULL DEFAULT 'Av. Norte y Coahuila #58, Dolores Hidalgo, GTO (Nuestra Sucursal)'`);
+    console.log('Added delivery_routes.startAddress column');
+  } catch (e) {
+    console.log('delivery_routes.startAddress might already exist:', e.message);
   }
 
   // 4. Create delivery_stops

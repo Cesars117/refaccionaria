@@ -291,13 +291,14 @@ model FinancialEntry {
 }
 
 model DeliveryRoute {
-  id        String         @id @default(cuid())
-  driverId  String?
-  driver    User?          @relation("DriverRoutes", fields: [driverId], references: [id])
-  status    String         @default("PENDING") // "PENDING", "IN_PROGRESS", "COMPLETED", "CANCELLED"
-  stops     DeliveryStop[]
-  createdAt DateTime       @default(now())
-  updatedAt DateTime       @updatedAt
+  id           String         @id @default(cuid())
+  driverId     String?
+  driver       User?          @relation("DriverRoutes", fields: [driverId], references: [id])
+  status       String         @default("PENDING") // "PENDING", "IN_PROGRESS", "COMPLETED", "CANCELLED"
+  startAddress String         @default("Av. Norte y Coahuila #58, Dolores Hidalgo, GTO")
+  stops        DeliveryStop[]
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
 
   @@map("delivery_routes")
 }

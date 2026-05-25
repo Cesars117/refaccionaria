@@ -790,6 +790,9 @@ export async function deleteQuote(formData: FormData) {
 export async function addQuoteItem(formData: FormData) {
   const quoteId = formData.get('quoteId') as string
   const partId = parseInt(formData.get('partId') as string)
+  if (isNaN(partId)) {
+    throw new Error('Debe seleccionar una parte del catálogo válida.')
+  }
   const quantity = parseInt(formData.get('quantity') as string || '1')
   const unitPrice = parseFloat(formData.get('unitPrice') as string || '0')
   const amount = quantity * unitPrice
@@ -1270,6 +1273,9 @@ export async function confirmQuoteFulfillment(formData: FormData) {
   })
 
   if (!quote) throw new Error('Cotización no encontrada')
+  if (quote.items.length === 0) {
+    throw new Error('No se puede confirmar una cotización sin partidas.')
+  }
 
   // Verificar existencias locales
   let hasAllStock = true
@@ -1446,11 +1452,12 @@ export async function getActiveDrivers() {
   })
 }
 
-export async function createDeliveryRoute(driverId: string, stops: any[]) {
+export async function createDeliveryRoute(driverId: string, stops: any[], startAddress?: string) {
   const route = await db.deliveryRoute.create({
     data: {
       driverId,
-      status: 'PENDING'
+      status: 'PENDING',
+      startAddress: startAddress || "Av. Norte y Coahuila #58, Dolores Hidalgo, GTO (Nuestra Sucursal)"
     }
   })
 

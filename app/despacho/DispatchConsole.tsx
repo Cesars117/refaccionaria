@@ -83,6 +83,7 @@ interface Stop {
 interface ActiveRoute {
   id: string;
   status: string;
+  startAddress: string;
   createdAt: string;
   driver: {
     id: string;
@@ -116,6 +117,7 @@ export default function DispatchConsole({
   const [plannerTab, setPlannerTab] = useState<'PLAN' | 'TRACK'>('PLAN');
   
   const [selectedDriverId, setSelectedDriverId] = useState(drivers[0]?.id || '');
+  const [startAddress, setStartAddress] = useState('Av. Norte y Coahuila #58, Dolores Hidalgo, GTO (Nuestra Sucursal)');
   const [stops, setStops] = useState<any[]>([]);
   const [mapLoaded, setMapLoaded] = useState(false);
   const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
@@ -559,7 +561,7 @@ export default function DispatchConsole({
 
     startTransition(async () => {
       try {
-        const result = await createDeliveryRoute(selectedDriverId, stops);
+        const result = await createDeliveryRoute(selectedDriverId, stops, startAddress);
         if (result.success) {
           setStops([]);
           setFeedback({
@@ -719,6 +721,39 @@ export default function DispatchConsole({
                   ))}
                 </select>
                 <User size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400" />
+              </div>
+            </div>
+
+            {/* Punto de Partida */}
+            <div className="mb-4">
+              <label className="text-xs font-bold text-gray-700 uppercase block mb-1">
+                Punto de Inicio de Ruta
+              </label>
+              <div className="relative">
+                <input
+                  type="text"
+                  value={startAddress}
+                  onChange={(e) => setStartAddress(e.target.value)}
+                  className="w-full text-xs border-gray-200 rounded-lg pl-8 pr-3 py-1.5 focus:ring-brand-500 focus:border-brand-500"
+                  placeholder="Ej: Av. Norte y Coahuila #58, Dolores Hidalgo, GTO o Bodega Proveedor"
+                />
+                <MapPin size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400" />
+              </div>
+              <div className="flex gap-1.5 mt-1.5">
+                <button
+                  type="button"
+                  onClick={() => setStartAddress('Av. Norte y Coahuila #58, Dolores Hidalgo, GTO (Nuestra Sucursal)')}
+                  className="text-[9px] font-bold bg-slate-100 hover:bg-slate-200 text-slate-700 px-2 py-0.5 rounded transition-all"
+                >
+                  Nuestra Sucursal
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setStartAddress('Bodega del Proveedor')}
+                  className="text-[9px] font-bold bg-slate-100 hover:bg-slate-200 text-slate-700 px-2 py-0.5 rounded transition-all"
+                >
+                  Bodega Proveedor
+                </button>
               </div>
             </div>
 

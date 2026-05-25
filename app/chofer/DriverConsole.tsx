@@ -26,6 +26,7 @@ interface Stop {
 interface Route {
   id: string;
   status: string;
+  startAddress: string;
   stops: Stop[];
 }
 
@@ -189,12 +190,15 @@ export default function DriverConsole({
           <span className="text-xs font-bold text-slate-300">Progreso de la Ruta</span>
           <span className="text-xs font-black text-white">{completedStops} / {totalStops} Paradas</span>
         </div>
-        <div className="w-full bg-slate-800 h-2 rounded-full overflow-hidden">
+        <div className="w-full bg-slate-800 h-2 rounded-full overflow-hidden mb-2">
           <div
             className="bg-brand-500 h-full rounded-full transition-all duration-500"
             style={{ width: `${progressPercent}%` }}
           />
         </div>
+        <p className="text-[11px] text-slate-400">
+          <strong>Punto de Partida:</strong> {initialRoute.startAddress || 'Nuestra Sucursal'}
+        </p>
       </div>
 
       {/* Stops list */}

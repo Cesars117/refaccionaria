@@ -49,11 +49,21 @@ export default function AgregarItemForm({ quoteId }: { quoteId: string }) {
         <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
         <input
           className="input-field pl-9 text-sm"
-          placeholder="Buscar parte (opcional)..."
+          placeholder="Buscar refacción en catálogo..."
           value={query}
           onChange={(e) => { setSelected(null); search(e.target.value); }}
           autoComplete="off"
+          required
         />
+        {query.length >= 2 && !selected && results.length === 0 && (
+          <p className="text-xs text-red-500 mt-1">No se encontraron resultados en el catálogo.</p>
+        )}
+        {query.length >= 2 && !selected && results.length > 0 && (
+          <p className="text-xs text-amber-600 mt-1 font-medium">⚠️ Seleccione una refacción del listado desplegable.</p>
+        )}
+        {selected && (
+          <p className="text-xs text-green-600 mt-1 font-semibold">✓ Seleccionado: {selected.name} (Stock: {selected.quantity})</p>
+        )}
         {results.length > 0 && (
           <ul className="absolute z-10 mt-1 w-full bg-white border border-gray-200 rounded-lg shadow-lg max-h-48 overflow-y-auto">
             {results.map((p) => (
@@ -65,7 +75,7 @@ export default function AgregarItemForm({ quoteId }: { quoteId: string }) {
                       Stock: {p.quantity}
                     </span>
                   </div>
-                  {p.sku && <span className="text-xs text-gray-400">SKU: {p.sku}</span>}
+                  {p.sku && <span className="text-xs text-gray-400">Código: {p.sku}</span>}
                 </button>
               </li>
             ))}
@@ -88,7 +98,7 @@ export default function AgregarItemForm({ quoteId }: { quoteId: string }) {
           <input name="unitPrice" type="number" step="0.01" min="0" value={unitPrice} onChange={(e) => setUnitPrice(parseFloat(e.target.value))} className="input-field text-sm" />
         </div>
         <div className="flex items-end">
-          <button type="submit" disabled={loading} className="btn-primary w-full text-sm">
+          <button type="submit" disabled={loading || !selected} className="btn-primary w-full text-sm disabled:opacity-40 disabled:cursor-not-allowed">
             <Plus className="h-4 w-4" /> {loading ? '...' : 'Agregar'}
           </button>
         </div>
