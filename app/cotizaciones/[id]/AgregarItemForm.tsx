@@ -4,7 +4,14 @@ import { useState } from 'react';
 import { addQuoteItem } from '@/app/actions';
 import { Plus, Search } from 'lucide-react';
 
-interface Part { id: number; name: string; sku: string | null; price: number; quantity: number; }
+interface Part { 
+  id: number | string; 
+  name: string; 
+  sku: string | null; 
+  price: number; 
+  quantity: number; 
+  isShopCatalog?: boolean;
+}
 
 export default function AgregarItemForm({ quoteId }: { quoteId: string }) {
   const [query, setQuery] = useState('');
@@ -62,7 +69,9 @@ export default function AgregarItemForm({ quoteId }: { quoteId: string }) {
           <p className="text-xs text-amber-600 mt-1 font-medium">⚠️ Seleccione una refacción del listado desplegable.</p>
         )}
         {selected && (
-          <p className="text-xs text-green-600 mt-1 font-semibold">✓ Seleccionado: {selected.name} (Stock: {selected.quantity})</p>
+          <p className="text-xs text-green-600 mt-1 font-semibold">
+            ✓ Seleccionado: {selected.name} {selected.isShopCatalog ? '(Catálogo Tienda - Bajo Pedido)' : `(Stock: ${selected.quantity})`}
+          </p>
         )}
         {results.length > 0 && (
           <ul className="absolute z-10 mt-1 w-full bg-white border border-gray-200 rounded-lg shadow-lg max-h-48 overflow-y-auto">
@@ -71,11 +80,20 @@ export default function AgregarItemForm({ quoteId }: { quoteId: string }) {
                 <button type="button" onClick={() => selectPart(p)} className="w-full text-left px-4 py-2 hover:bg-gray-50 text-sm">
                   <div className="flex justify-between items-center">
                     <span className="font-medium text-gray-900">{p.name}</span>
-                    <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${p.quantity > 0 ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'}`}>
-                      Stock: {p.quantity}
-                    </span>
+                    {p.isShopCatalog ? (
+                      <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-blue-50 text-blue-700">
+                        Catálogo Tienda (Bajo Pedido)
+                      </span>
+                    ) : (
+                      <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${p.quantity > 0 ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'}`}>
+                        Stock: {p.quantity}
+                      </span>
+                    )}
                   </div>
-                  {p.sku && <span className="text-xs text-gray-400">Código: {p.sku}</span>}
+                  <div className="flex gap-2 mt-0.5 text-xs text-gray-400">
+                    {p.sku && <span>Código: {p.sku}</span>}
+                    {p.isShopCatalog && <span className="text-amber-600 font-semibold">• Llega mismo día antes 4 PM</span>}
+                  </div>
                 </button>
               </li>
             ))}
@@ -106,3 +124,4 @@ export default function AgregarItemForm({ quoteId }: { quoteId: string }) {
     </form>
   );
 }
+

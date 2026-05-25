@@ -42,12 +42,17 @@ export default function QuoteFulfillmentCard({ quote }: { quote: any }) {
           if (result.stockStatus === 'IN_STOCK') {
             setVerifyFeedback({
               type: 'success',
-              message: '¡Todo el producto está disponible en inventario local! Listo para entrega inmediata.',
+              message: '¡Todo el producto está disponible en inventario local! Listo para ser enviado o entregado de inmediato.',
             });
           } else {
+            const now = new Date();
+            const hours = now.getHours();
+            const etaMsg = hours < 16 
+              ? 'Llega el mismo día antes de las 4:00 PM.' 
+              : 'Llega al día siguiente después de las 4:00 PM.';
             setVerifyFeedback({
               type: 'success',
-              message: 'Falta stock local para algunos artículos. Se requerirá pedir al proveedor (Tiempo aproximado de entrega/abasto: 1-2 días).',
+              message: `Falta stock local para algunos artículos. Se requerirá pedir al proveedor. ${etaMsg}`,
             });
           }
         } else {
@@ -311,6 +316,31 @@ export default function QuoteFulfillmentCard({ quote }: { quote: any }) {
               </div>
               <p className="leading-relaxed">{verifyFeedback.message}</p>
               
+              {/* Tiempo de entrega estimado */}
+              {verifyFeedback.type === 'success' && (
+                <div className="mt-2.5 p-2.5 bg-white/60 rounded-lg border border-gray-150 text-xs animate-in fade-in">
+                  <span className="font-bold text-gray-700 block mb-0.5">Tiempo de Entrega / Llegada Estimado:</span>
+                  <p className={cn(
+                    "font-semibold text-xs",
+                    stockCheckResult?.hasAllStock ? "text-green-700" : "text-amber-700"
+                  )}>
+                    {(() => {
+                      if (stockCheckResult?.hasAllStock) {
+                        return "Envío o entrega inmediata (Disponible en stock local)";
+                      } else {
+                        const now = new Date();
+                        const hours = now.getHours();
+                        if (hours < 16) {
+                          return "Mismo día (antes de las 4:00 PM)";
+                        } else {
+                          return "Al día siguiente (después de las 4:00 PM)";
+                        }
+                      }
+                    })()}
+                  </p>
+                </div>
+              )}
+
               {stockCheckResult && stockCheckResult.missingItems.length > 0 && (
                 <div className="mt-2 pt-2 border-t border-amber-200/50">
                   <span className="font-bold block mb-1">Artículos sin stock suficiente:</span>
@@ -362,6 +392,17 @@ export default function QuoteFulfillmentCard({ quote }: { quote: any }) {
                   <h4 className="font-bold text-amber-900 text-sm">Falta existencias locales</h4>
                   <p className="text-xs text-amber-700 mt-0.5">
                     Este pedido no cuenta con existencias locales en &apos;partes&apos;. Requiere ser solicitado con el proveedor.
+                  </p>
+                  <p className="text-xs font-semibold text-amber-800 mt-1">
+                    Tiempo de llegada estimado: {(() => {
+                      const now = new Date();
+                      const hours = now.getHours();
+                      if (hours < 16) {
+                        return "Mismo día (antes de las 4:00 PM)";
+                      } else {
+                        return "Al día siguiente (después de las 4:00 PM)";
+                      }
+                    })()}
                   </p>
                 </div>
               </div>

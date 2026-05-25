@@ -797,7 +797,100 @@ export async function deleteQuote(formData: FormData) {
 
 export async function addQuoteItem(formData: FormData) {
   const quoteId = formData.get('quoteId') as string
-  const partId = parseInt(formData.get('partId') as string)
+  const partIdStr = formData.get('partId') as string
+  
+  let partId: number;
+
+  if (partIdStr && partIdStr.startsWith('shop_')) {
+    const shopId = partIdStr.replace('shop_', '');
+    
+    // 1. Obtener producto de ShopProduct
+    const shopProds = await db.$queryRawUnsafe<any[]>(
+      `SELECT * FROM ShopProduct WHERE id = ?`,
+      shopId
+    );
+
+    if (!shopProds || shopProds.length === 0) {
+      throw new Error('No se encontró el producto en el catálogo de la tienda.');
+    }
+
+    const shopProd = shopProds[0];
+
+    // 2. Verificar si ya existe un Part local con este SKU
+    let existingPart = null;
+    if (shopProd.sku) {
+      existingPart = await db.part.findFirst({
+        where: { sku: shopProd.sku }
+      });
+    }
+
+    if (existingPart) {
+      partId = existingPart.id;
+    } else {
+      // 3. Obtener o crear Ubicación "Proveedor (Catálogo)"
+      let loc = await db.location.findFirst({
+        where: { name: 'Proveedor (Catálogo)' }
+      });
+      if (!loc) {
+        loc = await db.location.create({
+          data: {
+            name: 'Proveedor (Catálogo)',
+            type: 'SUPPLIER',
+            description: 'Ubicación para artículos bajo pedido del catálogo de la tienda'
+          }
+        });
+      }
+      const defaultLocationId = loc.id;
+
+      // 4. Obtener o crear Categoría
+      let cat = null;
+      if (shopProd.category) {
+        cat = await db.category.findFirst({
+          where: { name: { equals: shopProd.category } }
+        });
+        if (!cat) {
+          try {
+            cat = await db.category.create({
+              data: {
+                name: shopProd.category,
+                description: 'Categoría importada de la tienda'
+              }
+            });
+          } catch (e) {
+            cat = await db.category.findFirst();
+          }
+        }
+      }
+      if (!cat) {
+        cat = await db.category.findFirst({
+          where: { name: 'Enfriamiento' }
+        }) || await db.category.findFirst();
+      }
+      const defaultCategoryId = cat?.id || 1;
+
+      // 5. Crear la parte localmente con cantidad = 1
+      const newPart = await db.part.create({
+        data: {
+          name: shopProd.name,
+          sku: shopProd.sku || null,
+          oemNumber: shopProd.oemNumber || null,
+          brand: shopProd.brand || null,
+          price: shopProd.price || 0,
+          quantity: 1, // Se inicializa en 1 por requerimiento del usuario
+          minStock: 0,
+          categoryId: defaultCategoryId,
+          locationId: defaultLocationId,
+          description: shopProd.description || 'Producto importado de catálogo de tienda',
+        }
+      });
+
+      partId = newPart.id;
+      await logAudit('PART_CREATED_FROM_SHOP', 'PART', String(partId), `Parte autocreada desde tienda: ${newPart.name}`);
+    }
+  } else {
+    partId = parseInt(partIdStr);
+  }
+
   if (isNaN(partId)) {
     throw new Error('Debe seleccionar una parte del catálogo válida.')
   }
@@ -820,6 +913,7 @@ export async function addQuoteItem(formData: FormData) {
   await recalcQuote(quoteId)
   revalidatePath(`/cotizaciones/${quoteId}`)
 }
+
 
 export async function removeQuoteItem(formData: FormData) {
   const id = formData.get('id') as string
