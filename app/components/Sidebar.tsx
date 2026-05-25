@@ -46,18 +46,11 @@ const navSections: NavSection[] = [
     ],
   },
   {
-    label: 'FLOTAS',
-    items: [
-      { name: 'Flotas', href: '/flotas', icon: Truck },
-    ],
-  },
-  {
     label: 'CATÁLOGOS',
     items: [
-      { name: 'Vehículos', href: '/vehiculos', icon: Car },
       { name: 'Categorías', href: '/categorias', icon: Tag },
       { name: 'Ubicaciones', href: '/ubicaciones', icon: MapPin },
-      { name: 'Proveedores', href: '/proveedores', icon: Building2 },
+      { name: 'Proveedores', href: '/proveedores', icon: Building2, requiresAdmin: true },
     ],
   },
   {

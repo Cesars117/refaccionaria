@@ -1,9 +1,20 @@
 import { getSuppliers, createSupplier, deleteSupplier } from '@/app/actions';
 import { Plus } from 'lucide-react';
+import { getServerSession } from 'next-auth';
+import { redirect } from 'next/navigation';
+import { authOptions } from '@/lib/auth';
+import { canManageFinances } from '@/lib/rbac';
 
 export const dynamic = 'force-dynamic';
 
 export default async function ProveedoresPage() {
+  const session = await getServerSession(authOptions);
+  const role = session?.user?.role;
+
+  if (!canManageFinances(role)) {
+    redirect('/');
+  }
+
   const suppliers = await getSuppliers();
 
   return (
