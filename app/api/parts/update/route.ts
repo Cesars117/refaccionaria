@@ -2,9 +2,17 @@ import { NextRequest, NextResponse } from 'next/server';
 import db from '@/lib/db';
 import { revalidatePath } from 'next/cache';
 import { notifyTiendaOfUpdate } from '@/app/lib/tienda-sync';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/lib/auth';
+import { canManageInventory } from '@/lib/rbac';
 
 export async function POST(req: NextRequest) {
   try {
+    const session = await getServerSession(authOptions);
+    if (!canManageInventory(session?.user?.role)) {
+      return NextResponse.json({ success: false, error: 'No autorizado' }, { status: 403 });
+    }
+
     const data = await req.json();
     const { id, name, sku, brand, oemNumber, price, quantity, categoryId, locationId, description } = data;
 

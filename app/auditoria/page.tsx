@@ -84,8 +84,9 @@ export default async function AuditoriaPage({
       </div>
 
       <div className="card overflow-hidden">
-        <table className="min-w-full divide-y divide-gray-200">
-          <thead className="bg-gray-50">
+        <div className="overflow-x-auto w-full">
+          <table className="min-w-[800px] md:min-w-full divide-y divide-gray-200">
+            <thead className="bg-gray-50">
             <tr>
               <th className="table-header px-4 py-3">Fecha</th>
               <th className="table-header px-4 py-3">Usuario</th>
@@ -117,6 +118,7 @@ export default async function AuditoriaPage({
             )}
           </tbody>
         </table>
+        </div>
       </div>
     </div>
   )

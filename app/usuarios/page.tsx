@@ -39,10 +39,9 @@ export default async function UsuariosPage() {
           <input name="name" required placeholder="Nombre" className="input-field" />
           <input name="email" type="email" required placeholder="Correo" className="input-field" />
           <input name="password" type="password" required minLength={8} placeholder="Contraseña" className="input-field" />
-          <select name="role" defaultValue={ROLES.TRABAJADOR} className="input-field">
+          <select name="role" defaultValue={ROLES.DISPATCH} className="input-field">
             <option value={ROLES.SUPER_ADMIN}>Super Admin</option>
             <option value={ROLES.ADMIN}>Admin</option>
-            <option value={ROLES.TRABAJADOR}>Trabajador</option>
             <option value={ROLES.DISPATCH}>Despachador (Dispatch)</option>
             <option value={ROLES.DRIVER}>Chofer (Driver)</option>
           </select>
@@ -82,7 +81,6 @@ export default async function UsuariosPage() {
                       <select name="role" defaultValue={u.role} className="input-field h-9 py-1 px-2 text-xs">
                         <option value={ROLES.SUPER_ADMIN}>Super Admin</option>
                         <option value={ROLES.ADMIN}>Admin</option>
-                        <option value={ROLES.TRABAJADOR}>Trabajador</option>
                         <option value={ROLES.DISPATCH}>Despachador</option>
                         <option value={ROLES.DRIVER}>Chofer</option>
                       </select>

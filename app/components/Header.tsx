@@ -12,7 +12,8 @@ export default function Header() {
   const roleLabel: Record<string, string> = {
     SUPER_ADMIN: 'Super Admin',
     ADMIN: 'Admin',
-    TRABAJADOR: 'Trabajador',
+    DISPATCH: 'Despachador',
+    DRIVER: 'Chofer',
   };
 
   const role = normalizeRole(session?.user?.role);

@@ -7,7 +7,7 @@ import { getServerSession } from 'next-auth'
 import bcrypt from 'bcryptjs'
 import crypto from 'crypto'
 import { authOptions } from '@/lib/auth'
-import { canManageUsers, canManageFinances, normalizeRole, ROLES } from '@/lib/rbac'
+import { canManageUsers, canManageFinances, canManageInventory, normalizeRole, ROLES } from '@/lib/rbac'
 
 async function getSessionUser() {
   const session = await getServerSession(authOptions)
@@ -31,6 +31,15 @@ async function requireAdminOrFinanceUser() {
   const user = await getSessionUser()
   if (!canManageFinances(user.role)) {
     throw new Error('No autorizado: solo admin o super admin')
+  }
+  await ensureSchemaRepair()
+  return user
+}
+
+async function requireInventoryManager() {
+  const user = await getSessionUser()
+  if (!canManageInventory(user.role)) {
+    throw new Error('No autorizado: solo administradores o despachadores')
   }
   await ensureSchemaRepair()
   return user
@@ -150,7 +159,7 @@ export async function getPartById(id: number) {
 }
 
 export async function createPart(formData: FormData) {
-  await requireAdminOrFinanceUser()
+  await requireInventoryManager()
   const name = formData.get('name') as string
   const categoryId = parseInt(formData.get('categoryId') as string)
   const locationId = parseInt(formData.get('locationId') as string)
@@ -184,6 +193,7 @@ export async function createPart(formData: FormData) {
 
 export async function updatePart(formData: FormData) {
   try {
+    await requireInventoryManager()
     const id = parseInt(formData.get('id') as string)
     const name = formData.get('name') as string
     const categoryId = parseInt(formData.get('categoryId') as string) || 1
@@ -222,6 +232,7 @@ export async function getCategories() {
 }
 
 export async function createCategory(formData: FormData) {
+  await requireInventoryManager()
   try {
     const created = await db.category.create({
       data: {
@@ -238,6 +249,7 @@ export async function createCategory(formData: FormData) {
 }
 
 export async function updateCategory(formData: FormData) {
+  await requireInventoryManager()
   const id = parseInt(formData.get('id') as string)
   try {
     const updated = await db.category.update({
@@ -256,6 +268,7 @@ export async function updateCategory(formData: FormData) {
 }
 
 export async function deleteCategory(formData: FormData) {
+  await requireInventoryManager()
   const id = parseInt(formData.get('id') as string)
   try {
     const cat = await db.category.findUnique({ where: { id }, include: { _count: { select: { parts: true } } } })
@@ -297,6 +310,7 @@ export async function getLocations() {
 
 export async function createLocation(formData: FormData) {
   try {
+    await requireInventoryManager()
     await ensureSchemaRepair()
     const name = formData.get('name') as string
     const type = (formData.get('type') as string) || 'WAREHOUSE'
@@ -325,6 +339,7 @@ export async function createLocation(formData: FormData) {
 }
 
 export async function updateLocation(formData: FormData) {
+  await requireInventoryManager()
   const id = parseInt(formData.get('id') as string)
   try {
     const updated = await db.location.update({
@@ -345,6 +360,7 @@ export async function updateLocation(formData: FormData) {
 
 export async function deleteLocation(formData: FormData) {
   try {
+    await requireInventoryManager()
     const id = parseInt(formData.get('id') as string)
     // Usar SQL directo para evitar problemas de relación
     const count: any = await db.$queryRaw`SELECT COUNT(*) as count FROM parts WHERE locationId = ${id}`
@@ -367,6 +383,7 @@ export async function deleteLocation(formData: FormData) {
 
 export async function deletePart(formData: FormData) {
   try {
+    await requireInventoryManager()
     const id = parseInt(formData.get('id') as string)
     await db.$executeRawUnsafe(`DELETE FROM parts WHERE id = ?`, id)
     await logAudit('PART_DELETED', 'PART', String(id), `Parte eliminada (ID: ${id})`)
@@ -1417,7 +1434,7 @@ export async function getActiveDrivers() {
   return db.user.findMany({
     where: {
       isActive: true,
-      role: { in: ['DRIVER', 'TRABAJADOR', 'ADMIN', 'SUPER_ADMIN'] }
+      role: { in: ['DRIVER', 'DISPATCH', 'ADMIN', 'SUPER_ADMIN'] }
     },
     select: {
       id: true,
