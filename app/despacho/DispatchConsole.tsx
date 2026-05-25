@@ -5,7 +5,8 @@ import {
   createDeliveryRoute, 
   updateActiveRouteStops, 
   deleteDeliveryRoute, 
-  updateStopStatus 
+  updateStopStatus,
+  cancelDeliveryStop
 } from '@/app/actions';
 import { useRouter } from 'next/navigation';
 import { 
@@ -376,17 +377,8 @@ export default function DispatchConsole({
             </div>
           </div>
           <div class="footer">
-            <p style="font-weight: bold; font-size: 12px; margin-bottom: 8px;">¡Gracias por su preferencia!</p>
-            <p style="margin: 2px 0;">Su confianza es nuestro motor. A/C Radiamex agradece su compra.</p>
-            <div style="border: 1px dashed #000; padding: 8px; margin: 15px 0; text-align: left; font-size: 10px; line-height: 1.3;">
-              <b>TÉRMINOS Y CONDICIONES DE GARANTÍA:</b><br/>
-              1. Todo cambio o devolución requiere presentar este ticket físico de venta.<br/>
-              2. Garantía de 30 días naturales a partir de la fecha de emisión en partes mecánicas contra defectos de fábrica.<br/>
-              3. <b>IMPORTANTE:</b> No se aceptan cambios ni devoluciones en partes eléctricas de ningún tipo.<br/>
-              4. Las piezas no deben presentar muestras de mala instalación, golpes o alteración estructural.
-            </div>
-            <p style="margin: 2px 0;"><b>Soporte Logístico:</b> soporte@radiamex.com | <b>Tel:</b> +52 418 239 4907</p>
-            <p style="margin: 2px 0; font-size: 9px; color: #555;">Horario: Lun-Vie: 9:00 AM - 6:30 PM | Sáb: 9:00 AM - 2:30 PM</p>
+            <p>¡Gracias por su preferencia!</p>
+            <p>Soporte Logístico: soporte@radiamex.com</p>
           </div>
         </body>
       </html>
@@ -546,6 +538,25 @@ export default function DispatchConsole({
           message: 'Parada marcada como entregada.',
         });
         router.refresh();
+      }
+    });
+  };
+
+  const handleCancelDeliveryStop = (stopId: string) => {
+    if (!confirm('¿Estás seguro de cancelar esta entrega? Esto devolverá las refacciones al inventario y revertirá el pedido.')) return;
+    startTransition(async () => {
+      const result = await cancelDeliveryStop(stopId);
+      if (result.success) {
+        setFeedback({
+          type: 'success',
+          message: 'Entrega deshacha. Mercancía devuelta a inventario y cotización revertida.',
+        });
+        router.refresh();
+      } else {
+        setFeedback({
+          type: 'error',
+          message: result.error || 'Error al deshacer despacho.',
+        });
       }
     });
   };
@@ -970,9 +981,16 @@ export default function DispatchConsole({
                                     </button>
                                     <button
                                       onClick={() => handleForceCompleteStop(stop.id)}
-                                      className="px-1.5 py-0.5 bg-green-50 text-green-700 border border-green-200 text-[8px] font-bold rounded"
+                                      className="px-1.5 py-0.5 bg-green-50 hover:bg-green-100 text-green-700 border border-green-200 text-[8px] font-bold rounded"
                                     >
                                       Entregado
+                                    </button>
+                                    <button
+                                      onClick={() => handleCancelDeliveryStop(stop.id)}
+                                      className="px-1.5 py-0.5 bg-red-50 hover:bg-red-100 text-red-700 border border-red-200 text-[8px] font-bold rounded"
+                                      title="Cancelar despacho y regresar mercancía a inventario"
+                                    >
+                                      Deshacer Despacho
                                     </button>
                                   </>
                                 )}

@@ -1,10 +1,10 @@
 'use client';
 
 import { useState, useTransition } from 'react';
-import { confirmQuoteFulfillment, updateQuoteSupplierStatus, completeFulfillment } from '@/app/actions';
+import { checkQuoteStock, confirmQuoteFulfillment, updateQuoteSupplierStatus, completeFulfillment } from '@/app/actions';
 import { useRouter } from 'next/navigation';
 import { Truck, Store, CheckCircle, AlertTriangle, Clock, MapPin, PackageCheck, ClipboardCheck } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { cn, formatCurrency } from '@/lib/utils';
 
 export default function QuoteFulfillmentCard({ quote }: { quote: any }) {
   const router = useRouter();
@@ -15,9 +15,57 @@ export default function QuoteFulfillmentCard({ quote }: { quote: any }) {
   const [address, setAddress] = useState(
     quote.deliveryAddress || quote.customer.address || ''
   );
+  
+  // Estados para el flujo de dos pasos: verificar stock primero
+  const [stockCheckResult, setStockCheckResult] = useState<{
+    checked: boolean;
+    hasAllStock: boolean;
+    missingItems: string[];
+  } | null>(null);
+  const [verifyFeedback, setVerifyFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+  
   const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
 
-  const handleVerifyAndConfirm = () => {
+  const handleVerifyStock = () => {
+    setVerifyFeedback(null);
+    setFeedback(null);
+    
+    startTransition(async () => {
+      try {
+        const result = await checkQuoteStock(quote.id);
+        if (result.success) {
+          setStockCheckResult({
+            checked: true,
+            hasAllStock: result.stockStatus === 'IN_STOCK',
+            missingItems: result.missingItems || [],
+          });
+          if (result.stockStatus === 'IN_STOCK') {
+            setVerifyFeedback({
+              type: 'success',
+              message: '¡Todo el producto está disponible en inventario local! Listo para entrega inmediata.',
+            });
+          } else {
+            setVerifyFeedback({
+              type: 'success',
+              message: 'Falta stock local para algunos artículos. Se requerirá pedir al proveedor (Tiempo aproximado de entrega/abasto: 1-2 días).',
+            });
+          }
+        } else {
+          setVerifyFeedback({
+            type: 'error',
+            message: result.error || 'Error al verificar stock.',
+          });
+        }
+      } catch (err: any) {
+        setVerifyFeedback({
+          type: 'error',
+          message: err?.message || 'Error inesperado al verificar stock.',
+        });
+      }
+    });
+  };
+
+  const handleConfirmSale = () => {
     setFeedback(null);
     const fd = new FormData();
     fd.append('id', quote.id);
@@ -43,13 +91,13 @@ export default function QuoteFulfillmentCard({ quote }: { quote: any }) {
         } else {
           setFeedback({
             type: 'error',
-            message: 'Error al procesar la confirmación.',
+            message: result.error || 'Error al procesar la confirmación de la venta.',
           });
         }
       } catch (err: any) {
         setFeedback({
           type: 'error',
-          message: err?.message || 'Error inesperado.',
+          message: err?.message || 'Error inesperado al confirmar venta.',
         });
       }
     });
@@ -118,6 +166,8 @@ export default function QuoteFulfillmentCard({ quote }: { quote: any }) {
 
   const FulfillIcon = currentFulfill.icon;
 
+  const hasItems = quote.items && quote.items.length > 0;
+
   return (
     <div className="card p-6 border border-gray-200 shadow-sm bg-white rounded-xl mb-6">
       <div className="flex items-center justify-between border-b border-gray-100 pb-4 mb-4">
@@ -142,7 +192,17 @@ export default function QuoteFulfillmentCard({ quote }: { quote: any }) {
         </div>
       )}
 
-      {quote.status === 'PENDING' ? (
+      {!hasItems ? (
+        <div className="p-4 border border-red-200 bg-red-50 rounded-lg text-sm text-red-700 flex items-start gap-2.5">
+          <AlertTriangle className="shrink-0 mt-0.5" size={18} />
+          <div>
+            <h4 className="font-bold text-red-900">Cotización sin partidas</h4>
+            <p className="text-xs mt-1">
+              Se necesita mínimo un producto agregado a la cotización para poder verificar el stock y proceder con la venta.
+            </p>
+          </div>
+        </div>
+      ) : quote.status === 'PENDING' ? (
         <div className="space-y-4">
           <div>
             <label className="text-xs font-bold text-gray-700 uppercase block mb-2">
@@ -151,7 +211,11 @@ export default function QuoteFulfillmentCard({ quote }: { quote: any }) {
             <div className="grid grid-cols-2 gap-3">
               <button
                 type="button"
-                onClick={() => setDeliveryType('WILL_CALL')}
+                onClick={() => {
+                  setDeliveryType('WILL_CALL');
+                  setStockCheckResult(null);
+                  setVerifyFeedback(null);
+                }}
                 className={cn(
                   "flex items-center justify-center gap-2 p-3 border rounded-lg font-semibold text-sm transition-all",
                   deliveryType === 'WILL_CALL'
@@ -164,7 +228,11 @@ export default function QuoteFulfillmentCard({ quote }: { quote: any }) {
               </button>
               <button
                 type="button"
-                onClick={() => setDeliveryType('DELIVERY')}
+                onClick={() => {
+                  setDeliveryType('DELIVERY');
+                  setStockCheckResult(null);
+                  setVerifyFeedback(null);
+                }}
                 className={cn(
                   "flex items-center justify-center gap-2 p-3 border rounded-lg font-semibold text-sm transition-all",
                   deliveryType === 'DELIVERY'
@@ -187,7 +255,11 @@ export default function QuoteFulfillmentCard({ quote }: { quote: any }) {
                 <input
                   type="text"
                   value={address}
-                  onChange={(e) => setAddress(e.target.value)}
+                  onChange={(e) => {
+                    setAddress(e.target.value);
+                    setStockCheckResult(null);
+                    setVerifyFeedback(null);
+                  }}
                   className="w-full text-sm border-gray-200 rounded-lg pr-10 focus:ring-brand-500 focus:border-brand-500"
                   placeholder="Calle, Número, Colonia, C.P. Ciudad"
                   required={deliveryType === 'DELIVERY'}
@@ -197,16 +269,74 @@ export default function QuoteFulfillmentCard({ quote }: { quote: any }) {
             </div>
           )}
 
+          {/* Paso 1: Botón de verificación */}
           <div className="pt-2">
             <button
-              onClick={handleVerifyAndConfirm}
+              onClick={handleVerifyStock}
               disabled={isPending || (deliveryType === 'DELIVERY' && !address.trim())}
-              className="w-full py-2.5 bg-brand-600 text-white font-bold rounded-lg hover:bg-brand-700 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+              className="w-full py-2.5 bg-slate-800 text-white font-bold rounded-lg hover:bg-slate-900 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
             >
-              <PackageCheck size={18} />
-              <span>{isPending ? 'Verificando e inventariando...' : 'Verificar Stock y Confirmar Venta'}</span>
+              <ClipboardCheck size={18} />
+              <span>{isPending ? 'Verificando existencias...' : 'Paso 1: Verificar Stock local'}</span>
             </button>
           </div>
+
+          {/* Mostrar resultado del stock check */}
+          {verifyFeedback && (
+            <div className={cn(
+              "p-4 border rounded-lg text-xs space-y-2 animate-in fade-in slide-in-from-top-2",
+              verifyFeedback.type === 'success' 
+                ? stockCheckResult?.hasAllStock 
+                  ? "bg-green-50 border-green-200 text-green-800"
+                  : "bg-amber-50 border-amber-200 text-amber-800"
+                : "bg-red-50 border-red-200 text-red-800"
+            )}>
+              <div className="font-bold flex items-center gap-1.5 text-sm">
+                {stockCheckResult?.hasAllStock ? (
+                  <>
+                    <CheckCircle size={16} className="text-green-600" />
+                    <span>Existencia disponible</span>
+                  </>
+                ) : verifyFeedback.type === 'success' ? (
+                  <>
+                    <Clock size={16} className="text-amber-600" />
+                    <span>Se requiere pedido a proveedor (Faltantes)</span>
+                  </>
+                ) : (
+                  <>
+                    <AlertTriangle size={16} className="text-red-600" />
+                    <span>Error de verificación</span>
+                  </>
+                )}
+              </div>
+              <p className="leading-relaxed">{verifyFeedback.message}</p>
+              
+              {stockCheckResult && stockCheckResult.missingItems.length > 0 && (
+                <div className="mt-2 pt-2 border-t border-amber-200/50">
+                  <span className="font-bold block mb-1">Artículos sin stock suficiente:</span>
+                  <ul className="list-disc pl-4 space-y-1">
+                    {stockCheckResult.missingItems.map((item, idx) => (
+                      <li key={idx} className="font-mono text-[11px]">{item}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Paso 2: Botón de confirmación (solo si ya se verificó con éxito) */}
+          {stockCheckResult?.checked && (
+            <div className="pt-2 border-t border-gray-150 mt-4 animate-in fade-in slide-in-from-top-2">
+              <button
+                onClick={handleConfirmSale}
+                disabled={isPending}
+                className="w-full py-2.5 bg-brand-600 text-white font-bold rounded-lg hover:bg-brand-700 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+              >
+                <PackageCheck size={18} />
+                <span>Paso 2: Confirmar Venta y Reservar</span>
+              </button>
+            </div>
+          )}
         </div>
       ) : (
         <div className="space-y-4">

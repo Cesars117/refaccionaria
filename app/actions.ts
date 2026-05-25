@@ -1270,6 +1270,34 @@ export async function toggleFinancialPaid(formData: FormData) {
 
 // ─── LOGÍSTICA, ENTREGAS Y DESPACHO ───────────────────────
 
+export async function checkQuoteStock(quoteId: string) {
+  const quote = await db.quote.findUnique({
+    where: { id: quoteId },
+    include: { items: { include: { part: true } } },
+  })
+
+  if (!quote) return { success: false, error: 'Cotización no encontrada' }
+  if (quote.items.length === 0) {
+    return { success: false, error: 'Se necesita mínimo un producto agregado a la cotización para proceder.' }
+  }
+
+  let hasAllStock = true
+  const missingItems: string[] = []
+
+  for (const item of quote.items) {
+    if (item.part.quantity < item.quantity) {
+      hasAllStock = false
+      missingItems.push(`${item.description} (Requerido: ${item.quantity}, Disponible: ${item.part.quantity})`)
+    }
+  }
+
+  return {
+    success: true,
+    stockStatus: hasAllStock ? 'IN_STOCK' : 'OUT_OF_STOCK',
+    missingItems
+  }
+}
+
 export async function confirmQuoteFulfillment(formData: FormData) {
   const quoteId = formData.get('id') as string
   const deliveryType = formData.get('deliveryType') as string // "WILL_CALL" o "DELIVERY"
@@ -1280,9 +1308,9 @@ export async function confirmQuoteFulfillment(formData: FormData) {
     include: { items: { include: { part: true } } },
   })
 
-  if (!quote) throw new Error('Cotización no encontrada')
+  if (!quote) return { success: false, error: 'Cotización no encontrada' }
   if (quote.items.length === 0) {
-    throw new Error('No se puede confirmar una cotización sin partidas.')
+    return { success: false, error: 'Se necesita mínimo un producto agregado a la cotización para proceder.' }
   }
 
   // Verificar existencias locales
@@ -1600,6 +1628,80 @@ export async function updateStopETA(stopId: string, etaMinutes: number) {
   revalidatePath('/despacho')
   revalidatePath('/chofer')
   return { success: true }
+}
+
+export async function cancelDeliveryStop(stopId: string) {
+  try {
+    const stop = await db.deliveryStop.findUnique({
+      where: { id: stopId },
+      include: { 
+        quote: { 
+          include: { 
+            items: true 
+          } 
+        } 
+      }
+    })
+
+    if (!stop) return { success: false, error: 'Parada no encontrada' }
+
+    await db.$transaction(async (tx) => {
+      // 1. Si hay cotización asociada y estaba confirmada (restando stock)
+      if (stop.quoteId && stop.quote) {
+        const q = stop.quote
+        const stockWasDecremented = 
+          q.fulfillmentStatus === 'PENDING_DELIVERY' || 
+          q.fulfillmentStatus === 'PENDING_PICKUP' || 
+          q.fulfillmentStatus === 'COMPLETED' || 
+          (q.fulfillmentStatus === 'AWAITING_STOCK' && q.supplierStatus === 'RECEIVED')
+
+        if (stockWasDecremented) {
+          // Devolver stock a inventario
+          for (const item of q.items) {
+            await tx.part.update({
+              where: { id: item.partId },
+              data: { quantity: { increment: item.quantity } }
+            })
+          }
+        }
+
+        // Revertir cotización a PENDING y resetear estados de logística
+        await tx.quote.update({
+          where: { id: stop.quoteId },
+          data: {
+            status: 'PENDING',
+            fulfillmentStatus: 'PENDING_STOCK_CHECK',
+            supplierStatus: 'NONE'
+          }
+        })
+
+        // Borrar el registro financiero de la venta si existe
+        await tx.financialEntry.deleteMany({
+          where: { description: { contains: `Cotización ${q.quoteNumber}` } }
+        })
+
+        await logAudit(
+          'QUOTE_DELIVERY_CANCELLED', 
+          'QUOTE', 
+          stop.quoteId, 
+          `Entrega cancelada por despacho. Cotización revertida a PENDING y stock devuelto al inventario.`
+        )
+      }
+
+      // 2. Eliminar la parada
+      await tx.deliveryStop.delete({
+        where: { id: stopId }
+      })
+    })
+
+    revalidatePath('/despacho')
+    revalidatePath('/chofer')
+    revalidatePath('/cotizaciones')
+    return { success: true }
+  } catch (err: any) {
+    console.error('Error al deshacer despacho:', err)
+    return { success: false, error: err.message || 'Error al procesar' }
+  }
 }
 
 export async function getActiveRoutesWithStops() {
