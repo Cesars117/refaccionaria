@@ -5,6 +5,7 @@ import { formatCurrency } from '@/lib/utils';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { canViewRevenue, canManageFinances } from '@/lib/rbac';
+import { redirect } from 'next/navigation';
 
 export const dynamic = 'force-dynamic';
 
@@ -68,6 +69,14 @@ import FinancialChart from '@/app/components/FinancialChart';
 
 export default async function Home() {
   const session = await getServerSession(authOptions);
+  
+  if (session?.user?.role === 'DRIVER') {
+    redirect('/chofer');
+  }
+  if (session?.user?.role === 'DISPATCH') {
+    redirect('/despacho');
+  }
+
   const allowRevenue = canViewRevenue(session?.user?.role);
   const allowFinances = canManageFinances(session?.user?.role);
   const data = await getDashboardData();

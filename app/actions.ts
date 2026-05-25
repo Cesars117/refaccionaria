@@ -111,12 +111,12 @@ export async function getParts(query?: string, filterLow?: boolean) {
     where: {
       ...(query ? {
         OR: [
-          { name: { contains: query, mode: 'insensitive' } },
-          { sku: { contains: query, mode: 'insensitive' } },
-          { oemNumber: { contains: query, mode: 'insensitive' } },
-          { barcode: { contains: query, mode: 'insensitive' } },
-          { brand: { contains: query, mode: 'insensitive' } },
-          { category: { name: { contains: query, mode: 'insensitive' } } },
+          { name: { contains: query } },
+          { sku: { contains: query } },
+          { oemNumber: { contains: query } },
+          { barcode: { contains: query } },
+          { brand: { contains: query } },
+          { category: { name: { contains: query } } },
         ],
       } : {}),
     },
@@ -825,8 +825,8 @@ export async function getVehicleModels(query?: string) {
     where: query
       ? {
           OR: [
-            { make: { contains: query, mode: 'insensitive' } },
-            { model: { contains: query, mode: 'insensitive' } },
+            { make: { contains: query } },
+            { model: { contains: query } },
           ],
         }
       : undefined,
@@ -1230,3 +1230,457 @@ export async function toggleFinancialPaid(formData: FormData) {
   revalidatePath('/reportes/finanzas')
   return { success: true }
 }
+
+// ─── LOGÍSTICA, ENTREGAS Y DESPACHO ───────────────────────
+
+export async function confirmQuoteFulfillment(formData: FormData) {
+  const quoteId = formData.get('id') as string
+  const deliveryType = formData.get('deliveryType') as string // "WILL_CALL" o "DELIVERY"
+  const deliveryAddress = formData.get('deliveryAddress') as string || null
+
+  const quote = await db.quote.findUnique({
+    where: { id: quoteId },
+    include: { items: { include: { part: true } } },
+  })
+
+  if (!quote) throw new Error('Cotización no encontrada')
+
+  // Verificar existencias locales
+  let hasAllStock = true
+  const missingItems: string[] = []
+
+  for (const item of quote.items) {
+    if (item.part.quantity < item.quantity) {
+      hasAllStock = false
+      missingItems.push(`${item.description} (Requerido: ${item.quantity}, Disponible: ${item.part.quantity})`)
+    }
+  }
+
+  if (hasAllStock) {
+    // Si hay stock, se descuenta de inventario y se pone como listo para entregar/recoger
+    const targetFulfillmentStatus = deliveryType === 'WILL_CALL' ? 'PENDING_PICKUP' : 'PENDING_DELIVERY'
+    
+    await db.$transaction(async (tx) => {
+      // Descontar inventario
+      for (const item of quote.items) {
+        await tx.part.update({
+          where: { id: item.partId },
+          data: { quantity: { decrement: item.quantity } },
+        })
+      }
+      
+      // Actualizar cotización
+      await tx.quote.update({
+        where: { id: quoteId },
+        data: {
+          status: 'SOLD',
+          deliveryType,
+          deliveryAddress,
+          fulfillmentStatus: targetFulfillmentStatus,
+          supplierStatus: 'NONE',
+        },
+      })
+
+      // Registrar ingreso financiero
+      await tx.financialEntry.create({
+        data: {
+          type: 'INCOME',
+          category: 'SALES',
+          amount: quote.total,
+          description: `Venta Cotización ${quote.quoteNumber}`,
+          isPaid: true,
+          date: new Date(),
+        }
+      })
+    })
+
+    await logAudit('QUOTE_SOLD', 'QUOTE', quoteId, `Venta cerrada: ${quote.quoteNumber}. Stock local descontado. Estado: ${targetFulfillmentStatus}`)
+    revalidatePath('/cotizaciones')
+    revalidatePath(`/cotizaciones/${quoteId}`)
+    return { success: true, stockStatus: 'IN_STOCK', fulfillmentStatus: targetFulfillmentStatus }
+  } else {
+    // Si NO hay stock, se marca como vendido, pero se pone en espera de mercancía (proveedor)
+    await db.$transaction(async (tx) => {
+      await tx.quote.update({
+        where: { id: quoteId },
+        data: {
+          status: 'SOLD',
+          deliveryType,
+          deliveryAddress,
+          fulfillmentStatus: 'AWAITING_STOCK',
+          supplierStatus: 'NONE',
+        },
+      })
+
+      // Registrar ingreso financiero igualmente (la venta se concreta)
+      await tx.financialEntry.create({
+        data: {
+          type: 'INCOME',
+          category: 'SALES',
+          amount: quote.total,
+          description: `Venta Cotización ${quote.quoteNumber} (Espera Proveedor)`,
+          isPaid: true,
+          date: new Date(),
+        }
+      })
+    })
+
+    await logAudit('QUOTE_SOLD_AWAITING', 'QUOTE', quoteId, `Venta cerrada esperando stock: ${quote.quoteNumber}. Faltante: ${missingItems.join(', ')}`)
+    revalidatePath('/cotizaciones')
+    revalidatePath(`/cotizaciones/${quoteId}`)
+    return { success: true, stockStatus: 'OUT_OF_STOCK', fulfillmentStatus: 'AWAITING_STOCK', missingItems }
+  }
+}
+
+export async function updateQuoteSupplierStatus(formData: FormData) {
+  const quoteId = formData.get('id') as string
+  const supplierStatus = formData.get('supplierStatus') as string // "ORDERED" o "RECEIVED"
+
+  const quote = await db.quote.findUnique({
+    where: { id: quoteId }
+  })
+
+  if (!quote) throw new Error('Cotización no encontrada')
+
+  if (supplierStatus === 'ORDERED') {
+    await db.quote.update({
+      where: { id: quoteId },
+      data: { supplierStatus: 'ORDERED' }
+    })
+    await logAudit('QUOTE_SUPPLIER_ORDERED', 'QUOTE', quoteId, `Pedido a proveedor solicitado para cotización ${quote.quoteNumber}`)
+  } else if (supplierStatus === 'RECEIVED') {
+    const targetFulfillmentStatus = quote.deliveryType === 'WILL_CALL' ? 'PENDING_PICKUP' : 'PENDING_DELIVERY'
+    
+    await db.quote.update({
+      where: { id: quoteId },
+      data: { 
+        supplierStatus: 'RECEIVED',
+        fulfillmentStatus: targetFulfillmentStatus
+      }
+    })
+    await logAudit('QUOTE_SUPPLIER_RECEIVED', 'QUOTE', quoteId, `Pedido de proveedor recibido. Cotización ${quote.quoteNumber} lista para ${targetFulfillmentStatus}`)
+  }
+
+  revalidatePath('/cotizaciones')
+  revalidatePath(`/cotizaciones/${quoteId}`)
+  return { success: true }
+}
+
+export async function completeFulfillment(quoteId: string) {
+  await db.quote.update({
+    where: { id: quoteId },
+    data: { fulfillmentStatus: 'COMPLETED' }
+  })
+  await logAudit('FULFILLMENT_COMPLETED', 'QUOTE', quoteId, `Fulfillment completado para cotización`)
+  revalidatePath('/cotizaciones')
+  revalidatePath(`/cotizaciones/${quoteId}`)
+  return { success: true }
+}
+
+// Acciones para el Despachador
+export async function getPendingDeliveriesAndPickups() {
+  const [deliveries, supplierPickups] = await Promise.all([
+    // Entregas a domicilio listas
+    db.quote.findMany({
+      where: {
+        status: 'SOLD',
+        fulfillmentStatus: 'PENDING_DELIVERY'
+      },
+      include: { customer: true, items: { include: { part: true } } },
+      orderBy: { updatedAt: 'desc' }
+    }),
+    // Recolecciones en proveedor pendientes (el chofer va por ellas)
+    db.quote.findMany({
+      where: {
+        status: 'SOLD',
+        fulfillmentStatus: 'AWAITING_STOCK',
+        supplierStatus: 'ORDERED'
+      },
+      include: { customer: true, items: { include: { part: true } } },
+      orderBy: { updatedAt: 'desc' }
+    })
+  ])
+
+  return { deliveries, supplierPickups }
+}
+
+export async function getActiveDrivers() {
+  return db.user.findMany({
+    where: {
+      isActive: true,
+      role: { in: ['DRIVER', 'TRABAJADOR', 'ADMIN', 'SUPER_ADMIN'] }
+    },
+    select: {
+      id: true,
+      name: true,
+      role: true,
+      latitude: true,
+      longitude: true
+    }
+  })
+}
+
+export async function createDeliveryRoute(driverId: string, stops: any[]) {
+  const route = await db.deliveryRoute.create({
+    data: {
+      driverId,
+      status: 'PENDING'
+    }
+  })
+
+  // Crear paradas secuenciales
+  for (let i = 0; i < stops.length; i++) {
+    const stop = stops[i]
+    await db.deliveryStop.create({
+      data: {
+        routeId: route.id,
+        sequence: i + 1,
+        type: stop.type, // "PICKUP_PROVIDER" o "DELIVERY_CUSTOMER"
+        quoteId: stop.quoteId || null,
+        address: stop.address,
+        latitude: stop.latitude || null,
+        longitude: stop.longitude || null,
+        contactName: stop.contactName,
+        contactPhone: stop.contactPhone,
+        details: stop.details,
+        paymentStatus: stop.paymentStatus, // "PAID" o "COLLECT"
+        amountToCollect: stop.amountToCollect || 0,
+        status: 'PENDING'
+      }
+    })
+
+    // Si es una entrega al cliente, podemos pasar el estado de la cotización a "IN_PROGRESS" en ruta si se desea
+  }
+
+  revalidatePath('/despacho')
+  return { success: true, routeId: route.id }
+}
+
+export async function getActiveRouteForDriver(driverId: string) {
+  return db.deliveryRoute.findFirst({
+    where: {
+      driverId,
+      status: { in: ['PENDING', 'IN_PROGRESS'] }
+    },
+    include: {
+      stops: {
+        orderBy: { sequence: 'asc' }
+      }
+    },
+    orderBy: { createdAt: 'desc' }
+  })
+}
+
+export async function updateDriverGPS(driverId: string, latitude: number, longitude: number) {
+  await db.user.update({
+    where: { id: driverId },
+    data: { latitude, longitude }
+  })
+  return { success: true }
+}
+
+export async function updateStopStatus(stopId: string, status: 'COMPLETED' | 'FAILED', failedReason?: string) {
+  const stop = await db.deliveryStop.update({
+    where: { id: stopId },
+    data: {
+      status,
+      failedReason: failedReason || null,
+      completedAt: new Date()
+    }
+  })
+
+  // Lógica de transición de la cotización asociada
+  if (stop.quoteId) {
+    if (stop.type === 'PICKUP_PROVIDER' && status === 'COMPLETED') {
+      // Si el chofer ya recogió del proveedor, el pedido está listo para ser entregado
+      const quote = await db.quote.findUnique({ where: { id: stop.quoteId } })
+      if (quote) {
+        const targetFulfillmentStatus = quote.deliveryType === 'WILL_CALL' ? 'PENDING_PICKUP' : 'PENDING_DELIVERY'
+        await db.quote.update({
+          where: { id: stop.quoteId },
+          data: {
+            supplierStatus: 'RECEIVED',
+            fulfillmentStatus: targetFulfillmentStatus
+          }
+        })
+        await logAudit('QUOTE_SUPPLIER_RECEIVED', 'QUOTE', stop.quoteId, `Chofer completó la recolección del proveedor. Cotización lista para ${targetFulfillmentStatus}`)
+      }
+    } else if (stop.type === 'DELIVERY_CUSTOMER' && status === 'COMPLETED') {
+      // Si se entregó con éxito al cliente, marcar la cotización como completada (Fulfillment complete)
+      await db.quote.update({
+        where: { id: stop.quoteId },
+        data: { fulfillmentStatus: 'COMPLETED' }
+      })
+      await logAudit('FULFILLMENT_COMPLETED', 'QUOTE', stop.quoteId, `Entrega completada por el chofer al cliente.`)
+    }
+  }
+
+  // Verificar si la ruta se ha completado por completo (todas las paradas procesadas)
+  const route = await db.deliveryRoute.findUnique({
+    where: { id: stop.routeId },
+    include: { stops: true }
+  })
+
+  if (route) {
+    // Si la ruta estaba PENDING y se procesa la primera parada, pasar a IN_PROGRESS
+    if (route.status === 'PENDING') {
+      await db.deliveryRoute.update({
+        where: { id: route.id },
+        data: { status: 'IN_PROGRESS' }
+      })
+    }
+
+    const allProcessed = route.stops.every(s => s.status === 'COMPLETED' || s.status === 'FAILED')
+    if (allProcessed) {
+      await db.deliveryRoute.update({
+        where: { id: route.id },
+        data: { status: 'COMPLETED' }
+      })
+    }
+  }
+
+  revalidatePath('/despacho')
+  revalidatePath('/chofer')
+  return { success: true }
+}
+
+export async function updateStopETA(stopId: string, etaMinutes: number) {
+  const etaTime = new Date(Date.now() + etaMinutes * 60 * 1000)
+  await db.deliveryStop.update({
+    where: { id: stopId },
+    data: { eta: etaTime }
+  })
+  revalidatePath('/despacho')
+  revalidatePath('/chofer')
+  return { success: true }
+}
+
+export async function getActiveRoutesWithStops() {
+  return db.deliveryRoute.findMany({
+    where: {
+      status: { in: ['PENDING', 'IN_PROGRESS'] }
+    },
+    include: {
+      driver: {
+        select: {
+          id: true,
+          name: true,
+          role: true,
+          latitude: true,
+          longitude: true
+        }
+      },
+      stops: {
+        orderBy: { sequence: 'asc' },
+        include: {
+          quote: {
+            include: {
+              customer: true
+            }
+          }
+        }
+      }
+    },
+    orderBy: { createdAt: 'desc' }
+  })
+}
+
+export async function updateActiveRouteStops(routeId: string, stops: any[]) {
+  await db.$transaction(async (tx) => {
+    // 1. Eliminar paradas existentes de la ruta
+    await tx.deliveryStop.deleteMany({
+      where: { routeId }
+    })
+
+    // 2. Insertar paradas actualizadas con el nuevo orden o datos
+    for (let i = 0; i < stops.length; i++) {
+      const stop = stops[i]
+      await tx.deliveryStop.create({
+        data: {
+          routeId,
+          sequence: i + 1,
+          type: stop.type,
+          quoteId: stop.quoteId || null,
+          address: stop.address,
+          latitude: stop.latitude || null,
+          longitude: stop.longitude || null,
+          contactName: stop.contactName,
+          contactPhone: stop.contactPhone,
+          details: stop.details,
+          paymentStatus: stop.paymentStatus,
+          amountToCollect: stop.amountToCollect || 0,
+          status: stop.status || 'PENDING',
+          failedReason: stop.failedReason || null,
+          eta: stop.eta ? new Date(stop.eta) : null,
+          completedAt: stop.completedAt ? new Date(stop.completedAt) : null,
+        }
+      })
+    }
+  })
+
+  revalidatePath('/despacho')
+  revalidatePath('/chofer')
+  return { success: true }
+}
+
+export async function deleteDeliveryRoute(routeId: string) {
+  await db.deliveryRoute.delete({
+    where: { id: routeId }
+  })
+  revalidatePath('/despacho')
+  revalidatePath('/chofer')
+  return { success: true }
+}
+
+export async function generateUniqueBarcode() {
+  let unique = false
+  let code = ''
+  while (!unique) {
+    code = Math.floor(100000000000 + Math.random() * 900000000000).toString()
+    const existing = await db.part.findUnique({ where: { barcode: code } })
+    if (!existing) unique = true
+  }
+  return code
+}
+
+export async function getItems() {
+  const parts = await db.part.findMany({
+    include: { category: true, location: true }
+  })
+  return parts.map(p => ({
+    id: p.id,
+    name: p.name,
+    barcode: p.barcode,
+    quantity: p.quantity,
+    status: p.quantity > 0 ? 'AVAILABLE' : 'OUT_OF_STOCK',
+    category: { name: p.category.name },
+    location: { name: p.location.name }
+  }))
+}
+
+export async function updateItemBarcode(itemId: number, barcode: string) {
+  await db.part.update({
+    where: { id: itemId },
+    data: { barcode }
+  })
+  revalidatePath('/partes')
+}
+
+export async function findItemByBarcode(barcode: string) {
+  const p = await db.part.findUnique({
+    where: { barcode },
+    include: { category: true, location: true }
+  })
+  if (!p) return null
+  return {
+    id: p.id,
+    name: p.name,
+    barcode: p.barcode,
+    quantity: p.quantity,
+    status: p.quantity > 0 ? 'AVAILABLE' : 'OUT_OF_STOCK',
+    category: { name: p.category.name },
+    location: { name: p.location.name }
+  }
+}
+
+

@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { addQuoteItem } from '@/app/actions';
 import { Plus, Search } from 'lucide-react';
 
-interface Part { id: number; name: string; sku: string | null; price: number; }
+interface Part { id: number; name: string; sku: string | null; price: number; quantity: number; }
 
 export default function AgregarItemForm({ quoteId }: { quoteId: string }) {
   const [query, setQuery] = useState('');

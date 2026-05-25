@@ -1,7 +1,3 @@
-// A/C Radiamex
-// Venta de partes al detalle + Gestión de proyectos por flota
-// Inspirado en patrones de sistemas NAPA / AutoZone / O'Reilly
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -11,55 +7,57 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// ─── USUARIOS Y SEGURIDAD ──────────────────────────────────
 model User {
   id        String   @id @default(cuid())
   username  String?  @unique
   email     String   @unique
   password  String
   name      String
-  role      String   @default("TRABAJADOR") // SUPER_ADMIN | ADMIN | TRABAJADOR
+  role      String   @default("TRABAJADOR")
   isActive  Boolean  @default(true)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  // Geolocalización del chofer
+  latitude  Float?
+  longitude Float?
+  driverRoutes DeliveryRoute[] @relation("DriverRoutes")
+
   @@map("users")
 }
 
-// ─── PROVEEDORES ───────────────────────────────────────────
 model Supplier {
-  id        Int      @id @default(autoincrement())
-  name      String   @unique
+  id        Int            @id @default(autoincrement())
+  name      String         @unique
   contact   String?
   phone     String?
   email     String?
   address   String?
   notes     String?
+  createdAt DateTime       @default(now())
   parts     SupplierPart[]
-  createdAt DateTime @default(now())
 
   @@map("suppliers")
 }
 
-// Costo por proveedor (una parte puede comprarse a varios proveedores)
 model SupplierPart {
   id          Int      @id @default(autoincrement())
   supplierId  Int
-  supplier    Supplier @relation(fields: [supplierId], references: [id], onDelete: Cascade)
   partId      Int
-  part        Part     @relation(fields: [partId], references: [id], onDelete: Cascade)
   cost        Float    @default(0)
   leadDays    Int      @default(1)
   isPreferred Boolean  @default(false)
+  part        Part     @relation(fields: [partId], references: [id], onDelete: Cascade)
+  supplier    Supplier @relation(fields: [supplierId], references: [id], onDelete: Cascade)
 
   @@unique([supplierId, partId])
+  @@index([partId], map: "supplier_parts_partId_fkey")
   @@map("supplier_parts")
 }
 
-// ─── CATEGORÍAS Y UBICACIONES ─────────────────────────────
 model Category {
-  id          Int      @id @default(autoincrement())
-  name        String   @unique
+  id          Int     @id @default(autoincrement())
+  name        String  @unique
   description String?
   parts       Part[]
 
@@ -68,84 +66,71 @@ model Category {
 
 model Location {
   id          Int      @id @default(autoincrement())
-  name        String   @unique  // Ej: Estante A-1, Pasillo 2, Bodega
-  type        String   @default("WAREHOUSE") // WAREHOUSE | VEHICLE | SITE
+  name        String   @unique
+  type        String   @default("WAREHOUSE")
   description String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
   parts       Part[]
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
 
   @@map("locations")
 }
 
-// ─── CATÁLOGO DE REFACCIONES ───────────────────────────────
 model Part {
-  id           Int      @id @default(autoincrement())
-  name         String
-  description  String?
-  sku          String?  @unique
-  barcode      String?  @unique
-  oemNumber    String?  // Número de parte OEM
-  brand        String?
-  price        Float    @default(0)  // Precio al público
-  priceFleet   Float?               // Precio especial para flotas
-  cost         Float    @default(0)
-  quantity     Int      @default(0)
-  minStock     Int      @default(0)
-
-  categoryId   Int
-  category     Category @relation(fields: [categoryId], references: [id])
-
-  locationId   Int
-  location     Location @relation(fields: [locationId], references: [id])
-
-  // Compatibilidad con modelos de vehículo (tabla de fitment)
-  fitment      Fitment[]
-
-  supplierParts SupplierPart[]
-  quoteItems    QuoteItem[]
+  id            Int            @id @default(autoincrement())
+  name          String
+  description   String?
+  sku           String?        @unique
+  barcode       String?        @unique
+  oemNumber     String?
+  brand         String?
+  price         Float          @default(0)
+  priceFleet    Float?
+  cost          Float          @default(0)
+  quantity      Int            @default(0)
+  minStock      Int            @default(0)
+  categoryId    Int
+  locationId    Int
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  fitment       Fitment[]
+  category      Category       @relation(fields: [categoryId], references: [id])
+  location      Location       @relation(fields: [locationId], references: [id])
   projectParts  ProjectPart[]
+  quoteItems    QuoteItem[]
+  supplierParts SupplierPart[]
 
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
-
+  @@index([categoryId], map: "parts_categoryId_fkey")
+  @@index([locationId], map: "parts_locationId_fkey")
   @@map("parts")
 }
 
-// ─── CATÁLOGO DE MODELOS DE VEHÍCULOS (fitment) ───────────
-// Catálogo de modelos de vehículos para búsqueda de compatibilidad.
-// NO son vehículos físicos. Una entrada representa Nissan Sentra 2015-2019 2.0L
 model VehicleModel {
-  id        String  @id @default(cuid())
-  make      String  // Nissan
-  model     String  // Sentra
+  id        String    @id @default(cuid())
+  make      String
+  model     String
   yearStart Int
   yearEnd   Int?
-  engine    String? // 2.0L, 3.5L V6
-  trim      String? // XE, SE, LE
-
+  engine    String?
+  trim      String?
   fitment   Fitment[]
 
   @@index([make, model])
   @@map("vehicle_models")
 }
 
-// Tabla de compatibilidad parte ↔ modelo de vehículo
 model Fitment {
   partId         Int
   vehicleModelId String
-  notes          String? // "Solo versión con A/C"
-
-  part         Part         @relation(fields: [partId], references: [id], onDelete: Cascade)
-  vehicleModel VehicleModel @relation(fields: [vehicleModelId], references: [id], onDelete: Cascade)
+  notes          String?
+  part           Part         @relation(fields: [partId], references: [id], onDelete: Cascade)
+  vehicleModel   VehicleModel @relation(fields: [vehicleModelId], references: [id], onDelete: Cascade)
 
   @@id([partId, vehicleModelId])
+  @@index([vehicleModelId], map: "fitment_vehicleModelId_fkey")
   @@map("fitment")
 }
 
-// ─── CLIENTES ──────────────────────────────────────────────
-// type: RETAIL (comprador ocasional), FLEET (empresa con flota)
 model Customer {
   id        String   @id @default(cuid())
   name      String
@@ -153,127 +138,112 @@ model Customer {
   phone     String
   address   String?
   rfc       String?
-  type      String   @default("RETAIL") // RETAIL | FLEET
+  type      String   @default("RETAIL")
   notes     String?
-
-  fleet     Fleet?
-  quotes    Quote[]
-
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+  fleet     Fleet?
+  quotes    Quote[]
 
   @@map("customers")
 }
 
-// ─── FLOTAS ────────────────────────────────────────────────
-// Una flota pertenece a un cliente de tipo FLEET.
-// Agrupa sus vehículos físicos y proyectos de mantenimiento.
 model Fleet {
-  id         String   @id @default(cuid())
+  id         String               @id @default(cuid())
   name       String
-  customerId String   @unique
-  customer   Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  customerId String               @unique
   notes      String?
-
+  createdAt  DateTime             @default(now())
   units      FleetUnit[]
+  customer   Customer             @relation(fields: [customerId], references: [id], onDelete: Cascade)
   projects   MaintenanceProject[]
-
-  createdAt  DateTime @default(now())
 
   @@map("fleets")
 }
 
-// ─── UNIDADES DE FLOTA (vehículos físicos) ─────────────────
-// Cada unidad es un vehículo real: tiene placas, VIN, kilometraje.
 model FleetUnit {
-  id       String  @id @default(cuid())
-  fleetId  String
-  fleet    Fleet   @relation(fields: [fleetId], references: [id], onDelete: Cascade)
+  id        String               @id @default(cuid())
+  fleetId   String
+  year      Int
+  make      String
+  model     String
+  trim      String?
+  color     String?
+  plate     String?              @unique
+  vin       String?              @unique
+  mileage   Int?
+  engine    String?
+  notes     String?
+  createdAt DateTime             @default(now())
+  updatedAt DateTime             @updatedAt
+  fleet     Fleet                @relation(fields: [fleetId], references: [id], onDelete: Cascade)
+  projects  MaintenanceProject[]
 
-  // Identificación del vehículo
-  year     Int
-  make     String
-  model    String
-  trim     String?
-  color    String?
-  plate    String?  @unique
-  vin      String?  @unique
-  mileage  Int?
-  engine   String?
-  notes    String?
-
-  projects MaintenanceProject[]
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
+  @@index([fleetId], map: "fleet_units_fleetId_fkey")
   @@map("fleet_units")
 }
 
-// ─── PROYECTOS DE MANTENIMIENTO ────────────────────────────
-// Proyecto de mantenimiento/reparación para una unidad de flota.
-// Aquí se registran las partes a usar, descontando del inventario.
 model MaintenanceProject {
-  id            String  @id @default(cuid())
-  projectNumber String  @unique // PROY-2026-0001
-  fleetId       String
-  fleet         Fleet   @relation(fields: [fleetId], references: [id])
-  fleetUnitId   String
-  fleetUnit     FleetUnit @relation(fields: [fleetUnitId], references: [id])
-
-  name          String
-  description   String?
-  status        String   @default("OPEN")     // OPEN | IN_PROGRESS | WAITING_PARTS | COMPLETED | CANCELLED
-  priority      String   @default("NORMAL")   // LOW | NORMAL | HIGH | URGENT
+  id               String        @id @default(cuid())
+  projectNumber    String        @unique
+  fleetId          String
+  fleetUnitId      String
+  name             String
+  description      String?
+  status           String        @default("OPEN")
+  priority         String        @default("NORMAL")
   mileageAtService Int?
+  startDate        DateTime?
+  completedDate    DateTime?
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+  fleet            Fleet         @relation(fields: [fleetId], references: [id])
+  fleetUnit        FleetUnit     @relation(fields: [fleetUnitId], references: [id])
+  parts            ProjectPart[]
 
-  parts         ProjectPart[]
-
-  startDate     DateTime?
-  completedDate DateTime?
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-
+  @@index([fleetId], map: "maintenance_projects_fleetId_fkey")
+  @@index([fleetUnitId], map: "maintenance_projects_fleetUnitId_fkey")
   @@map("maintenance_projects")
 }
 
-// Partes usadas en un proyecto de mantenimiento
 model ProjectPart {
-  id        String @id @default(cuid())
+  id        String             @id @default(cuid())
   projectId String
-  project   MaintenanceProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
   partId    Int
-  part      Part   @relation(fields: [partId], references: [id])
-
-  quantity  Int    @default(1)
-  unitPrice Float  @default(0)
+  quantity  Int                @default(1)
+  unitPrice Float              @default(0)
   notes     String?
+  part      Part               @relation(fields: [partId], references: [id])
+  project   MaintenanceProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
 
+  @@index([partId], map: "project_parts_partId_fkey")
+  @@index([projectId], map: "project_parts_projectId_fkey")
   @@map("project_parts")
 }
 
-// ─── COTIZACIONES Y VENTAS (retail) ───────────────────────
 model Quote {
-  id          String   @id @default(cuid())
-  quoteNumber String   @unique // COT-2026-0001
-  status      String   @default("PENDING") // PENDING | SOLD | CANCELLED
-
+  id          String      @id @default(cuid())
+  quoteNumber String      @unique
+  status      String      @default("PENDING")
   customerId  String
-  customer    Customer @relation(fields: [customerId], references: [id])
-
-  // Vehículo de referencia (para anotar para qué auto son las partes)
-  vehicleRef  String?  // ej. "Nissan Sentra 2018 2.0L" – texto libre o ID de VehicleModel
+  vehicleRef  String?
   notes       String?
-
-  subtotal    Float    @default(0)
-  tax         Float    @default(0)
-  total       Float    @default(0)
-
+  subtotal    Float       @default(0)
+  tax         Float       @default(0)
+  total       Float       @default(0)
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
   items       QuoteItem[]
+  customer    Customer    @relation(fields: [customerId], references: [id])
 
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  // Datos de entrega y abasto
+  deliveryType      String         @default("WILL_CALL") // "WILL_CALL", "DELIVERY"
+  fulfillmentStatus String         @default("PENDING_STOCK_CHECK") // "PENDING_STOCK_CHECK", "AWAITING_STOCK", "PENDING_PICKUP", "PENDING_DELIVERY", "COMPLETED", "CANCELLED"
+  supplierStatus    String         @default("NONE") // "NONE", "ORDERED", "RECEIVED"
+  deliveryAddress   String?
+  deliveryStops     DeliveryStop[]
 
+  @@index([customerId], map: "quotes_customerId_fkey")
   @@map("quotes")
 }
 
@@ -281,19 +251,18 @@ model QuoteItem {
   id          String @id @default(cuid())
   quoteId     String
   partId      Int
+  description String
+  quantity    Int    @default(1)
+  unitPrice   Float  @default(0)
+  amount      Float  @default(0)
+  part        Part   @relation(fields: [partId], references: [id])
+  quote       Quote  @relation(fields: [quoteId], references: [id], onDelete: Cascade)
 
-  description String  // Snapshot del nombre de la parte
-  quantity    Int     @default(1)
-  unitPrice   Float   @default(0)
-  amount      Float   @default(0)
-
-  quote       Quote @relation(fields: [quoteId], references: [id], onDelete: Cascade)
-  part        Part  @relation(fields: [partId], references: [id])
-
+  @@index([partId], map: "quote_items_partId_fkey")
+  @@index([quoteId], map: "quote_items_quoteId_fkey")
   @@map("quote_items")
 }
 
-// ─── REGISTRO DE AUDITORÍA ─────────────────────────────────
 model AuditLog {
   id         Int      @id @default(autoincrement())
   action     String
@@ -307,11 +276,10 @@ model AuditLog {
   @@map("audit_log")
 }
 
-// ─── GESTIÓN FINANCIERA ────────────────────────────────────
 model FinancialEntry {
   id          String   @id @default(cuid())
-  type        String   // INCOME | EXPENSE
-  category    String   // INITIAL_INVESTMENT | RENT | PAYROLL | UTILITIES | OTHER
+  type        String
+  category    String
   amount      Float
   description String
   isPaid      Boolean  @default(true)
@@ -320,4 +288,40 @@ model FinancialEntry {
   updatedAt   DateTime @updatedAt
 
   @@map("financial_entries")
+}
+
+model DeliveryRoute {
+  id        String         @id @default(cuid())
+  driverId  String?
+  driver    User?          @relation("DriverRoutes", fields: [driverId], references: [id])
+  status    String         @default("PENDING") // "PENDING", "IN_PROGRESS", "COMPLETED", "CANCELLED"
+  stops     DeliveryStop[]
+  createdAt DateTime       @default(now())
+  updatedAt DateTime       @updatedAt
+
+  @@map("delivery_routes")
+}
+
+model DeliveryStop {
+  id              String        @id @default(cuid())
+  routeId         String
+  route           DeliveryRoute @relation(fields: [routeId], references: [id], onDelete: Cascade)
+  sequence        Int
+  type            String        // "PICKUP_PROVIDER" o "DELIVERY_CUSTOMER"
+  quoteId         String?
+  quote           Quote?        @relation(fields: [quoteId], references: [id])
+  address         String
+  latitude        Float?
+  longitude       Float?
+  contactName     String
+  contactPhone    String
+  details         String
+  paymentStatus   String        // "PAID", "COLLECT"
+  amountToCollect Float         @default(0)
+  status          String        @default("PENDING") // "PENDING", "COMPLETED", "FAILED"
+  failedReason    String?
+  eta             DateTime?
+  completedAt     DateTime?
+
+  @@map("delivery_stops")
 }

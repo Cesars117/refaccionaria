@@ -11,8 +11,8 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
-  // Don't show app shell on login page
-  if (pathname === '/login') {
+  // Don't show app shell on login page or driver routes
+  if (pathname === '/login' || pathname.startsWith('/chofer') || pathname.startsWith('/driver')) {
     return <>{children}</>;
   }
 

@@ -37,7 +37,7 @@ export default async function ParteDetailPage({ params }: any) {
             <div>
               <h1 className="text-2xl font-bold text-gray-900">{part.name}</h1>
               <p className="text-sm text-gray-500">
-                {part.category?.name ?? 'Sin categoría'} · {part.location?.name ?? 'Sin ubicación'}
+                {(part as any).category?.name ?? 'Sin categoría'} · {(part as any).location?.name ?? 'Sin ubicación'}
               </p>
             </div>
           </div>

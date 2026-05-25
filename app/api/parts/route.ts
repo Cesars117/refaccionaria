@@ -8,10 +8,10 @@ export async function GET(req: NextRequest) {
     where: q
       ? {
           OR: [
-            { name: { contains: q, mode: 'insensitive' } },
-            { sku: { contains: q, mode: 'insensitive' } },
-            { oemNumber: { contains: q, mode: 'insensitive' } },
-            { brand: { contains: q, mode: 'insensitive' } },
+            { name: { contains: q } },
+            { sku: { contains: q } },
+            { oemNumber: { contains: q } },
+            { brand: { contains: q } },
           ],
         }
       : {},

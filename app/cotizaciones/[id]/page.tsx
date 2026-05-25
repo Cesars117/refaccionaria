@@ -7,6 +7,8 @@ import QuoteActions from './QuoteActions';
 import QuoteHeader from './QuoteHeader';
 import QuoteItemRow from './QuoteItemRow';
 import AgregarItemForm from './AgregarItemForm';
+import QuoteFulfillmentCard from './QuoteFulfillmentCard';
+import PrintTicketButton from './PrintTicketButton';
 
 export const dynamic = 'force-dynamic';
 
@@ -48,11 +50,14 @@ export default async function CotizacionDetailPage({ params }: { params: Promise
             </div>
             <QuoteHeader quote={quote} customers={customers} />
           </div>
-          <div className="shrink-0">
+          <div className="shrink-0 flex items-center gap-2">
+            <PrintTicketButton quote={quote as any} />
             <QuoteActions quoteId={quote.id} currentStatus={quote.status} />
           </div>
         </div>
       </div>
+
+      <QuoteFulfillmentCard quote={quote} />
 
       {/* Line items */}
       <div className="card mb-4">

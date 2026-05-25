@@ -77,7 +77,7 @@ export default function FinancialChart({ data }: { data: Entry[] }) {
           />
           <Tooltip 
             contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}
-            formatter={(value: number) => [formatCurrency(value), 'Balance Neto']}
+            formatter={(value: any) => [formatCurrency(value), 'Balance Neto']}
           />
           <Area 
             type="monotone" 

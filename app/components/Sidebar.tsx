@@ -22,7 +22,20 @@ import { cn } from '@/lib/utils';
 import { signOut, useSession } from 'next-auth/react';
 import { canManageUsers, canViewAudit } from '@/lib/rbac';
 
-const navSections = [
+interface NavItem {
+  name: string;
+  href: string;
+  icon: any;
+  requiresAdmin?: boolean;
+  requiresAudit?: boolean;
+}
+
+interface NavSection {
+  label: string;
+  items: NavItem[];
+}
+
+const navSections: NavSection[] = [
   {
     label: 'VENTAS',
     items: [

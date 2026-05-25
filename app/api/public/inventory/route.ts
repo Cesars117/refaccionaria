@@ -27,9 +27,7 @@ export async function GET(req: NextRequest) {
         category: { select: { name: true } },
         location: { select: { name: true } },
       },
-      where: {
-        isActive: true,
-      }
+
     });
 
     return NextResponse.json({

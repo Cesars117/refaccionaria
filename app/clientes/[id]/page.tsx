@@ -1,7 +1,7 @@
 import { getCustomerById } from '@/app/actions';
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
-import { ArrowLeft, FileText, Truck } from 'lucide-react';
+import { ArrowLeft, FileText, Truck, MapPin } from 'lucide-react';
 import { formatCurrency } from '@/lib/utils';
 import NuevaUnidadForm from './NuevaUnidadForm';
 
@@ -48,13 +48,22 @@ export default async function ClienteDetailPage({ params }: { params: Promise<{ 
             <h2 className="text-sm font-semibold text-gray-700 mb-3">Datos del cliente</h2>
             <dl className="space-y-2 text-sm">
               {customer.address && (
-                <div><dt className="text-gray-400">Dirección</dt><dd className="text-gray-900">{customer.address}</dd></div>
+                <div>
+                  <dt className="text-gray-400">Dirección</dt>
+                  <dd className="text-gray-900 break-words">{customer.address}</dd>
+                </div>
               )}
               {customer.rfc && (
-                <div><dt className="text-gray-400">RFC</dt><dd className="text-gray-900">{customer.rfc}</dd></div>
+                <div>
+                  <dt className="text-gray-400">RFC</dt>
+                  <dd className="text-gray-900 break-words">{customer.rfc}</dd>
+                </div>
               )}
               {customer.notes && (
-                <div><dt className="text-gray-400">Notas</dt><dd className="text-gray-900">{customer.notes}</dd></div>
+                <div>
+                  <dt className="text-gray-400">Notas</dt>
+                  <dd className="text-gray-900 mt-1">{renderNotes(customer.notes)}</dd>
+                </div>
               )}
             </dl>
           </div>
@@ -120,6 +129,40 @@ export default async function ClienteDetailPage({ params }: { params: Promise<{ 
       </div>
     </div>
   );
+}
+
+function renderNotes(notes: string) {
+  const urlRegex = /(https?:\/\/[^\s]+)/g;
+  const matches = notes.match(urlRegex);
+  if (matches) {
+    let cleanText = notes;
+    matches.forEach(url => {
+      cleanText = cleanText.replace(url, '');
+    });
+    
+    return (
+      <div className="space-y-2">
+        {cleanText.trim() && (
+          <p className="text-gray-900 break-words whitespace-pre-line">{cleanText.trim()}</p>
+        )}
+        <div className="pt-1 flex flex-col gap-1.5">
+          {matches.map((url, i) => (
+            <a
+              key={i}
+              href={url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-brand-50 hover:bg-brand-100 text-brand-700 border border-brand-200 rounded-lg text-[11px] font-bold transition-all w-fit break-all"
+            >
+              <MapPin size={12} className="text-brand-600 shrink-0" />
+              Ver Ubicación en Google Maps
+            </a>
+          ))}
+        </div>
+      </div>
+    );
+  }
+  return <p className="text-gray-900 break-words whitespace-pre-line">{notes}</p>;
 }
 
 function StatusPill({ status }: { status: string }) {

@@ -43,6 +43,8 @@ export default async function UsuariosPage() {
             <option value={ROLES.SUPER_ADMIN}>Super Admin</option>
             <option value={ROLES.ADMIN}>Admin</option>
             <option value={ROLES.TRABAJADOR}>Trabajador</option>
+            <option value={ROLES.DISPATCH}>Despachador (Dispatch)</option>
+            <option value={ROLES.DRIVER}>Chofer (Driver)</option>
           </select>
           <div className="md:col-span-5">
             <button type="submit" className="btn-primary">Crear Usuario</button>
@@ -81,6 +83,8 @@ export default async function UsuariosPage() {
                         <option value={ROLES.SUPER_ADMIN}>Super Admin</option>
                         <option value={ROLES.ADMIN}>Admin</option>
                         <option value={ROLES.TRABAJADOR}>Trabajador</option>
+                        <option value={ROLES.DISPATCH}>Despachador</option>
+                        <option value={ROLES.DRIVER}>Chofer</option>
                       </select>
                       <button className="btn-secondary text-xs h-9" type="submit">Rol</button>
                     </form>

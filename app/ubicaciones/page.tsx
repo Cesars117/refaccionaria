@@ -23,7 +23,7 @@ export default async function UbicacionesPage() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="card p-5">
           <h2 className="text-sm font-semibold text-gray-700 mb-4">Nueva ubicación</h2>
-          <form action={createLocation} className="space-y-3">
+          <form action={createLocation as any} className="space-y-3">
             <div>
               <label className="label-field">Nombre *</label>
               <input name="name" required className="input-field text-sm" placeholder="Ej: Bodega A" />

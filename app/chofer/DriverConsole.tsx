@@ -1,0 +1,406 @@
+'use client';
+
+import { useState, useEffect, useTransition } from 'react';
+import { updateDriverGPS, updateStopStatus, updateStopETA } from '@/app/actions';
+import { useRouter } from 'next/navigation';
+import { MapPin, Navigation, Phone, Check, X, AlertTriangle, Play, CheckCircle2, DollarSign, Clock, RefreshCw } from 'lucide-react';
+import { cn, formatCurrency } from '@/lib/utils';
+
+interface Stop {
+  id: string;
+  sequence: number;
+  type: 'PICKUP_PROVIDER' | 'DELIVERY_CUSTOMER';
+  address: string;
+  latitude: number | null;
+  longitude: number | null;
+  contactName: string;
+  contactPhone: string;
+  details: string;
+  paymentStatus: 'PAID' | 'COLLECT';
+  amountToCollect: number;
+  status: 'PENDING' | 'COMPLETED' | 'FAILED';
+  failedReason: string | null;
+  eta: string | null;
+}
+
+interface Route {
+  id: string;
+  status: string;
+  stops: Stop[];
+}
+
+export default function DriverConsole({
+  driverId,
+  initialRoute,
+}: {
+  driverId: string;
+  initialRoute: Route | null;
+}) {
+  const router = useRouter();
+  const [isPending, startTransition] = useTransition();
+  const [gpsStatus, setGpsStatus] = useState<'ACTIVE' | 'ERROR' | 'CHECKING'>('CHECKING');
+  const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(null);
+  const [failingStopId, setFailingStopId] = useState<string | null>(null);
+  const [failedReason, setFailedReason] = useState('');
+  const [updatingEtaStopId, setUpdatingEtaStopId] = useState<string | null>(null);
+  const [etaMinutes, setEtaMinutes] = useState('15');
+
+  // GPS Broadcaster: Obtener y transmitir ubicación periódicamente
+  useEffect(() => {
+    if (!navigator.geolocation) {
+      setGpsStatus('ERROR');
+      return;
+    }
+
+    const transmitLocation = (position: GeolocationPosition) => {
+      const lat = position.coords.latitude;
+      const lng = position.coords.longitude;
+      setCoords({ lat, lng });
+      setGpsStatus('ACTIVE');
+
+      // Transmitir al servidor de forma silenciosa
+      startTransition(async () => {
+        try {
+          await updateDriverGPS(driverId, lat, lng);
+        } catch (e) {
+          console.error('Error al transmitir GPS:', e);
+        }
+      });
+    };
+
+    const handleGpsError = (err: GeolocationPositionError) => {
+      console.warn('GPS Error:', err.message);
+      setGpsStatus('ERROR');
+    };
+
+    // Obtener ubicación inicial
+    navigator.geolocation.getCurrentPosition(transmitLocation, handleGpsError, {
+      enableHighAccuracy: true,
+    });
+
+    // Monitorear continuamente
+    const watchId = navigator.geolocation.watchPosition(transmitLocation, handleGpsError, {
+      enableHighAccuracy: true,
+      maximumAge: 10000,
+      timeout: 15000,
+    });
+
+    return () => {
+      navigator.geolocation.clearWatch(watchId);
+    };
+  }, [driverId]);
+
+  const handleCompleteStop = (stopId: string) => {
+    startTransition(async () => {
+      try {
+        const result = await updateStopStatus(stopId, 'COMPLETED');
+        if (result.success) {
+          router.refresh();
+        }
+      } catch (err: any) {
+        alert('Error al completar parada: ' + err.message);
+      }
+    });
+  };
+
+  const handleFailStopSubmit = (stopId: string) => {
+    if (!failedReason.trim()) return;
+
+    startTransition(async () => {
+      try {
+        const result = await updateStopStatus(stopId, 'FAILED', failedReason);
+        if (result.success) {
+          setFailingStopId(null);
+          setFailedReason('');
+          router.refresh();
+        }
+      } catch (err: any) {
+        alert('Error al registrar incidencia: ' + err.message);
+      }
+    });
+  };
+
+  const handleUpdateEtaSubmit = (stopId: string) => {
+    const mins = parseInt(etaMinutes);
+    if (isNaN(mins) || mins <= 0) return;
+
+    startTransition(async () => {
+      try {
+        const result = await updateStopETA(stopId, mins);
+        if (result.success) {
+          setUpdatingEtaStopId(null);
+          router.refresh();
+        }
+      } catch (err: any) {
+        alert('Error al guardar ETA: ' + err.message);
+      }
+    });
+  };
+
+  if (!initialRoute || !initialRoute.stops || initialRoute.stops.length === 0) {
+    return (
+      <div className="flex-1 flex flex-col items-center justify-center text-center py-20 px-6 bg-slate-900 border border-slate-800 rounded-2xl">
+        <Navigation size={48} className="text-slate-700 mb-4 animate-bounce" />
+        <h3 className="text-lg font-bold text-white">Sin ruta asignada</h3>
+        <p className="text-xs text-slate-400 mt-2 max-w-xs">
+          No tienes ninguna ruta de entrega activa en este momento. Ponte en contacto con el despacho para que te asigne pedidos.
+        </p>
+        <button
+          onClick={() => router.refresh()}
+          className="mt-6 py-2 px-4 bg-brand-600 hover:bg-brand-700 text-white font-bold rounded-lg text-xs transition-colors flex items-center gap-1.5"
+        >
+          <RefreshCw size={14} />
+          Verificar nuevamente
+        </button>
+      </div>
+    );
+  }
+
+  const stops = initialRoute.stops;
+  const completedStops = stops.filter((s) => s.status !== 'PENDING').length;
+  const totalStops = stops.length;
+  const progressPercent = Math.round((completedStops / totalStops) * 100);
+
+  return (
+    <div className="space-y-4 flex-grow flex flex-col">
+      {/* GPS Status Indicator */}
+      <div className={cn(
+        "p-3 rounded-xl border flex items-center justify-between text-xs font-semibold shadow-sm transition-all",
+        gpsStatus === 'ACTIVE' 
+          ? "bg-green-950/40 text-green-400 border-green-900/60" 
+          : gpsStatus === 'ERROR' 
+            ? "bg-red-950/40 text-red-400 border-red-900/60" 
+            : "bg-slate-950/40 text-slate-400 border-slate-800"
+      )}>
+        <span className="flex items-center gap-1.5">
+          <span className={cn("w-2 h-2 rounded-full", gpsStatus === 'ACTIVE' ? "bg-green-400 animate-ping" : "bg-red-400")} />
+          {gpsStatus === 'ACTIVE' ? 'GPS Activo: Transmitiendo ubicación' : gpsStatus === 'ERROR' ? 'Señal GPS fallida o denegada' : 'Buscando GPS...'}
+        </span>
+        {coords && (
+          <span className="text-[10px] text-slate-500 font-mono">
+            {coords.lat.toFixed(4)}, {coords.lng.toFixed(4)}
+          </span>
+        )}
+      </div>
+
+      {/* Progress Card */}
+      <div className="bg-slate-800/50 border border-slate-800 rounded-xl p-4 shadow-md">
+        <div className="flex justify-between items-center mb-2">
+          <span className="text-xs font-bold text-slate-300">Progreso de la Ruta</span>
+          <span className="text-xs font-black text-white">{completedStops} / {totalStops} Paradas</span>
+        </div>
+        <div className="w-full bg-slate-800 h-2 rounded-full overflow-hidden">
+          <div
+            className="bg-brand-500 h-full rounded-full transition-all duration-500"
+            style={{ width: `${progressPercent}%` }}
+          />
+        </div>
+      </div>
+
+      {/* Stops list */}
+      <div className="space-y-4 flex-1">
+        {stops.map((stop) => {
+          const isPickup = stop.type === 'PICKUP_PROVIDER';
+          const isPendingStop = stop.status === 'PENDING';
+          const isCompleted = stop.status === 'COMPLETED';
+          const isFailed = stop.status === 'FAILED';
+
+          return (
+            <div
+              key={stop.id}
+              className={cn(
+                "border rounded-xl overflow-hidden shadow-sm transition-all bg-[#1e293b]",
+                isCompleted 
+                  ? "border-green-900/40 opacity-70 bg-slate-900/60" 
+                  : isFailed 
+                    ? "border-red-900/40 opacity-70 bg-slate-900/60" 
+                    : isPickup 
+                      ? "border-amber-900/30" 
+                      : "border-slate-800"
+              )}
+            >
+              {/* Stop Header */}
+              <div className="p-4 flex items-start justify-between gap-3 border-b border-slate-800/40">
+                <div className="flex items-start gap-2.5">
+                  <span className={cn(
+                    "w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm shrink-0 border-2",
+                    isCompleted 
+                      ? "bg-green-950 border-green-500 text-green-400" 
+                      : isFailed 
+                        ? "bg-red-950 border-red-500 text-red-400" 
+                        : isPickup 
+                          ? "bg-amber-950 border-amber-500 text-amber-400" 
+                          : "bg-slate-950 border-slate-600 text-slate-300"
+                  )}>
+                    {isCompleted ? '✓' : isFailed ? '✕' : stop.sequence}
+                  </span>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <h4 className="font-bold text-white text-sm">{stop.contactName}</h4>
+                      <span className={cn(
+                        "text-[9px] font-bold px-2 py-0.5 rounded-full uppercase",
+                        isPickup ? "bg-amber-950/60 text-amber-400" : "bg-purple-950/60 text-purple-400"
+                      )}>
+                        {isPickup ? 'Proveedor' : 'Cliente'}
+                      </span>
+                    </div>
+                    {stop.contactPhone && stop.contactPhone !== '—' && (
+                      <a
+                        href={`tel:${stop.contactPhone}`}
+                        className="text-xs text-brand-400 hover:underline flex items-center gap-1 mt-1"
+                      >
+                        <Phone size={12} />
+                        {stop.contactPhone}
+                      </a>
+                    )}
+                  </div>
+                </div>
+
+                {stop.eta && isPendingStop && (
+                  <span className="text-[10px] bg-slate-800 border border-slate-700 text-slate-300 px-2 py-0.5 rounded-md flex items-center gap-1 font-semibold">
+                    <Clock size={10} />
+                    ETA: {new Date(stop.eta).toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' })}
+                  </span>
+                )}
+              </div>
+
+              {/* Stop Body */}
+              <div className="p-4 space-y-3">
+                {/* Address */}
+                <div className="flex items-start gap-1.5">
+                  <MapPin size={16} className="text-slate-500 shrink-0 mt-0.5" />
+                  <p className="text-xs text-slate-300 leading-tight">{stop.address}</p>
+                </div>
+
+                {/* Details / Products */}
+                <div className="bg-slate-900/60 p-3 rounded-lg border border-slate-800/40 text-xs">
+                  <p className="text-slate-400 font-bold uppercase text-[9px] tracking-wider mb-1">Artículos</p>
+                  <p className="text-slate-200 font-semibold leading-relaxed">{stop.details}</p>
+                </div>
+
+                {/* Payment */}
+                {!isPickup && (
+                  <div className={cn(
+                    "p-2.5 rounded-lg text-xs font-bold border flex items-center justify-between",
+                    stop.paymentStatus === 'PAID'
+                      ? "bg-green-950/20 text-green-400 border-green-950"
+                      : "bg-red-950/20 text-red-400 border-red-950"
+                  )}>
+                    <span className="flex items-center gap-1">
+                      <DollarSign size={14} />
+                      {stop.paymentStatus === 'PAID' ? 'YA PAGADO (No cobrar)' : 'PAGO CONTRA ENTREGA (Cobrar)'}
+                    </span>
+                    {stop.paymentStatus === 'COLLECT' && (
+                      <span className="text-white text-sm font-black bg-red-800/60 px-2.5 py-0.5 rounded-md">
+                        {formatCurrency(stop.amountToCollect)}
+                      </span>
+                    )}
+                  </div>
+                )}
+
+                {/* Failed Reason display */}
+                {isFailed && stop.failedReason && (
+                  <div className="p-3 bg-red-950/20 text-red-400 text-xs rounded-lg border border-red-950/40 flex items-start gap-1.5">
+                    <AlertTriangle size={14} className="shrink-0 mt-0.5" />
+                    <p><strong>Incidencia:</strong> {stop.failedReason}</p>
+                  </div>
+                )}
+
+                {/* Stop Actions (only for PENDING) */}
+                {isPendingStop && (
+                  <div className="pt-2 flex flex-col gap-2">
+                    {/* Navigation */}
+                    <a
+                      href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(stop.address)}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="w-full py-2 bg-slate-800 hover:bg-slate-700 text-slate-100 rounded-lg text-xs font-bold flex items-center justify-center gap-2 border border-slate-700 transition-colors"
+                    >
+                      <Navigation size={14} />
+                      Navegar con Google Maps
+                    </a>
+
+                    <div className="grid grid-cols-2 gap-2">
+                      <button
+                        onClick={() => handleCompleteStop(stop.id)}
+                        disabled={isPending}
+                        className="py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 transition-colors"
+                      >
+                        <Check size={14} />
+                        {isPickup ? 'Recogido' : 'Entregado'}
+                      </button>
+                      <button
+                        onClick={() => {
+                          setFailingStopId(failingStopId === stop.id ? null : stop.id);
+                          setUpdatingEtaStopId(null);
+                        }}
+                        className="py-2 bg-red-900/30 hover:bg-red-900/50 text-red-400 rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 border border-red-900/40 transition-colors"
+                      >
+                        <X size={14} />
+                        Reportar Fallo
+                      </button>
+                    </div>
+
+                    {/* ETA Update toggle */}
+                    <button
+                      onClick={() => {
+                        setUpdatingEtaStopId(updatingEtaStopId === stop.id ? null : stop.id);
+                        setFailingStopId(null);
+                      }}
+                      className="text-center text-[10px] text-slate-500 hover:text-slate-300 font-semibold"
+                    >
+                      {stop.eta ? 'Actualizar estimación ETA' : 'Añadir estimación ETA (Tiempo de arribo)'}
+                    </button>
+
+                    {/* Inline Form: ETA */}
+                    {updatingEtaStopId === stop.id && (
+                      <div className="p-3 bg-slate-900 rounded-lg border border-slate-800 space-y-2 animate-in fade-in slide-in-from-top-1">
+                        <label className="text-[10px] text-slate-400 font-bold uppercase">Minutos para llegar:</label>
+                        <div className="flex gap-2">
+                          <input
+                            type="number"
+                            value={etaMinutes}
+                            onChange={(e) => setEtaMinutes(e.target.value)}
+                            className="bg-slate-800 border-slate-700 text-xs text-white rounded-md p-1.5 flex-1"
+                            min="1"
+                          />
+                          <button
+                            onClick={() => handleUpdateEtaSubmit(stop.id)}
+                            className="bg-brand-600 hover:bg-brand-700 text-white text-xs font-bold px-3 py-1.5 rounded-md"
+                          >
+                            OK
+                          </button>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Inline Form: INCIDENCE */}
+                    {failingStopId === stop.id && (
+                      <div className="p-3 bg-slate-900 rounded-lg border border-slate-800 space-y-2 animate-in fade-in slide-in-from-top-1">
+                        <label className="text-[10px] text-red-400 font-bold uppercase">Motivo del fallo:</label>
+                        <textarea
+                          placeholder="Escribe el motivo (ej. cliente no contesta...)"
+                          value={failedReason}
+                          onChange={(e) => setFailedReason(e.target.value)}
+                          className="bg-slate-800 border-slate-700 text-xs text-white rounded-md p-2 w-full h-16 resize-none"
+                          required
+                        />
+                        <button
+                          onClick={() => handleFailStopSubmit(stop.id)}
+                          disabled={!failedReason.trim()}
+                          className="w-full py-1.5 bg-red-600 hover:bg-red-700 text-white text-xs font-bold rounded-md"
+                        >
+                          Reportar Incidencia
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
