@@ -32,10 +32,11 @@ export default function AgregarItemForm({ quoteId }: { quoteId: string }) {
 
   function selectPart(p: Part) {
     setSelected(p);
-    setDescription(p.name);
+    const codeAndName = p.sku ? `${p.sku} - ${p.name}` : p.name;
+    setDescription(codeAndName);
     setUnitPrice(p.price);
     setResults([]);
-    setQuery(p.name);
+    setQuery(codeAndName);
   }
 
   return (
