@@ -375,12 +375,45 @@ export async function deleteLocation(formData: FormData) {
   try {
     await requireInventoryManager()
     const id = parseInt(formData.get('id') as string)
-    // Usar SQL directo para evitar problemas de relación
+    const deleteParts = formData.get('deleteParts') === 'true'
+    const transferParts = formData.get('transferParts') === 'true'
+
     const count: any = await db.$queryRaw`SELECT COUNT(*) as count FROM parts WHERE locationId = ${id}`
     const partsCount = count[0]?.count || 0
 
     if (partsCount > 0) {
-      return { success: false, error: 'Ubicación tiene partes asignadas' }
+      if (deleteParts) {
+        const parts = await db.part.findMany({ where: { locationId: id } })
+        for (const p of parts) {
+          const usedInQuotes = await db.quoteItem.findFirst({ where: { partId: p.id } })
+          const usedInProjects = await db.projectPart.findFirst({ where: { partId: p.id } })
+          if (usedInQuotes || usedInProjects) {
+            return { 
+              success: false, 
+              error: `No se puede eliminar la parte '${p.name}' porque está en uso en cotizaciones o proyectos activos. Primero elimínela de allí.` 
+            }
+          }
+        }
+        await db.$executeRawUnsafe(`DELETE FROM parts WHERE locationId = ?`, id)
+      } else if (transferParts) {
+        let generalLoc = await db.location.findFirst({
+          where: { name: 'Almacen General' }
+        })
+        if (!generalLoc) {
+          generalLoc = await db.location.findFirst({
+            where: { id: { not: id } }
+          })
+        }
+        if (!generalLoc) {
+          return { success: false, error: 'No se encontró un almacén alternativo para transferir las partes.' }
+        }
+        await db.part.updateMany({
+          where: { locationId: id },
+          data: { locationId: generalLoc.id }
+        })
+      } else {
+        return { success: false, error: 'La ubicación tiene partes asignadas. Elija eliminarlas o transferirlas.' }
+      }
     }
 
     await db.$executeRawUnsafe(`DELETE FROM locations WHERE id = ?`, id)

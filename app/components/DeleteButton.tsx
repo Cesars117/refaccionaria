@@ -17,8 +17,49 @@ export function DeleteButton({ id, type, partsCount = 0 }: DeleteButtonProps) {
   const handleDelete = async (e: React.FormEvent) => {
     e.preventDefault()
 
-    if (type !== 'part' && partsCount > 0) {
-      alert(`No se puede eliminar: esta ${type === 'category' ? 'categoría' : 'ubicación'} tiene ${partsCount} partes asignadas.`);
+    if (type === 'category' && partsCount > 0) {
+      alert(`No se puede eliminar: esta categoría tiene ${partsCount} partes asignadas.`);
+      return
+    }
+
+    if (type === 'location' && partsCount > 0) {
+      if (confirm(`Esta ubicación tiene ${partsCount} partes asignadas.\n\n¿Desea ELIMINAR permanentemente todas las partes asignadas junto con la ubicación?`)) {
+        startTransition(async () => {
+          try {
+            const formData = new FormData()
+            formData.append('id', id.toString())
+            formData.append('deleteParts', 'true')
+            const result = await deleteLocation(formData)
+            if (result && !result.success) {
+              alert('No se pudo eliminar: ' + (result.error || 'Error desconocido'));
+            } else {
+              alert('Ubicación y sus partes eliminadas con éxito');
+              router.refresh();
+            }
+          } catch (error) {
+            alert('Error al procesar la solicitud.');
+          }
+        })
+        return
+      } else if (confirm(`¿Desea TRANSFERIR las ${partsCount} partes al 'Almacen General' y después eliminar la ubicación?`)) {
+        startTransition(async () => {
+          try {
+            const formData = new FormData()
+            formData.append('id', id.toString())
+            formData.append('transferParts', 'true')
+            const result = await deleteLocation(formData)
+            if (result && !result.success) {
+              alert('No se pudo completar: ' + (result.error || 'Error desconocido'));
+            } else {
+              alert('Partes transferidas a Almacen General y ubicación eliminada con éxito');
+              router.refresh();
+            }
+          } catch (error) {
+            alert('Error al procesar la solicitud.');
+          }
+        })
+        return
+      }
       return
     }
 
