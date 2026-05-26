@@ -48,10 +48,7 @@ export default function QuoteItemRow({
     return (
       <tr className="bg-brand-50/50">
         <td className="px-4 py-2 text-sm text-gray-900 font-medium">
-          <div>{item.description}</div>
-          {item.part?.sku && (
-            <div className="text-[10px] text-gray-400 font-mono mt-0.5">Cód: {item.part.sku}</div>
-          )}
+          <div>{item.part?.sku ? `[${item.part.sku}] ${item.description}` : item.description}</div>
         </td>
         <td className="px-3 py-2">
           <input 
@@ -97,10 +94,7 @@ export default function QuoteItemRow({
   return (
     <tr className="hover:bg-gray-50 group">
       <td className="px-4 py-2 text-sm text-gray-900">
-        <div>{item.description}</div>
-        {item.part?.sku && (
-          <div className="text-[10px] text-gray-400 font-mono mt-0.5">Cód: {item.part.sku}</div>
-        )}
+        <div>{item.part?.sku ? `[${item.part.sku}] ${item.description}` : item.description}</div>
       </td>
       <td className="px-3 py-2 text-right text-sm">{item.quantity}</td>
       <td className="px-3 py-2 text-right text-sm">{formatCurrency(item.unitPrice)}</td>

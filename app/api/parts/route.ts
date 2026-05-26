@@ -6,16 +6,23 @@ export async function GET(req: NextRequest) {
 
   // 1. Buscar en la tabla local Part
   const parts = await db.part.findMany({
-    where: q
-      ? {
-          OR: [
-            { name: { contains: q } },
-            { sku: { contains: q } },
-            { oemNumber: { contains: q } },
-            { brand: { contains: q } },
-          ],
+    where: {
+      location: {
+        name: {
+          not: 'Proveedor (Catálogo)'
         }
-      : {},
+      },
+      ...(q
+        ? {
+            OR: [
+              { name: { contains: q } },
+              { sku: { contains: q } },
+              { oemNumber: { contains: q } },
+              { brand: { contains: q } },
+            ],
+          }
+        : {}),
+    },
     select: {
       id: true,
       name: true,

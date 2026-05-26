@@ -127,6 +127,11 @@ export async function seedInitialData() {
 export async function getParts(query?: string, filterLow?: boolean) {
   return db.part.findMany({
     where: {
+      location: {
+        name: {
+          not: 'Proveedor (Catálogo)'
+        }
+      },
       ...(query ? {
         OR: [
           { name: { contains: query } },
@@ -1535,7 +1540,8 @@ export async function updateQuoteSupplierStatus(formData: FormData) {
   const supplierStatus = formData.get('supplierStatus') as string // "ORDERED" o "RECEIVED"
 
   const quote = await db.quote.findUnique({
-    where: { id: quoteId }
+    where: { id: quoteId },
+    include: { items: { include: { part: { include: { location: true } } } } }
   })
 
   if (!quote) throw new Error('Cotización no encontrada')
@@ -1549,14 +1555,27 @@ export async function updateQuoteSupplierStatus(formData: FormData) {
   } else if (supplierStatus === 'RECEIVED') {
     const targetFulfillmentStatus = quote.deliveryType === 'WILL_CALL' ? 'PENDING_PICKUP' : 'PENDING_DELIVERY'
     
-    await db.quote.update({
-      where: { id: quoteId },
-      data: { 
-        supplierStatus: 'RECEIVED',
-        fulfillmentStatus: targetFulfillmentStatus
+    await db.$transaction(async (tx) => {
+      // Descontar inventario de refacciones locales (las de catálogo no descuentan stock local)
+      for (const item of quote.items) {
+        const isCatalog = item.part.location?.name === 'Proveedor (Catálogo)'
+        if (!isCatalog) {
+          await tx.part.update({
+            where: { id: item.partId },
+            data: { quantity: { decrement: item.quantity } }
+          })
+        }
       }
+
+      await tx.quote.update({
+        where: { id: quoteId },
+        data: { 
+          supplierStatus: 'RECEIVED',
+          fulfillmentStatus: targetFulfillmentStatus
+        }
+      })
     })
-    await logAudit('QUOTE_SUPPLIER_RECEIVED', 'QUOTE', quoteId, `Pedido de proveedor recibido. Cotización ${quote.quoteNumber} lista para ${targetFulfillmentStatus}`)
+    await logAudit('QUOTE_SUPPLIER_RECEIVED', 'QUOTE', quoteId, `Pedido de proveedor recibido. Stock local reservado. Cotización ${quote.quoteNumber} lista para ${targetFulfillmentStatus}`)
   }
 
   revalidatePath('/cotizaciones')
@@ -1564,12 +1583,39 @@ export async function updateQuoteSupplierStatus(formData: FormData) {
   return { success: true }
 }
 
-export async function completeFulfillment(quoteId: string) {
+export async function completeFulfillment(quoteId: string, paymentMethod?: string) {
+  const quote = await db.quote.findUnique({
+    where: { id: quoteId }
+  })
+  if (!quote) throw new Error('Cotización no encontrada')
+
   await db.quote.update({
     where: { id: quoteId },
     data: { fulfillmentStatus: 'COMPLETED' }
   })
-  await logAudit('FULFILLMENT_COMPLETED', 'QUOTE', quoteId, `Fulfillment completado para cotización`)
+
+  if (paymentMethod) {
+    const entry = await db.financialEntry.findFirst({
+      where: {
+        description: { startsWith: `Venta Cotización ${quote.quoteNumber}` }
+      }
+    })
+    if (entry) {
+      await db.financialEntry.update({
+        where: { id: entry.id },
+        data: {
+          description: `${entry.description} (Pago: ${paymentMethod})`
+        }
+      })
+    }
+  }
+
+  await logAudit(
+    'FULFILLMENT_COMPLETED', 
+    'QUOTE', 
+    quoteId, 
+    `Fulfillment completado (recogido en tienda).${paymentMethod ? ` Método de pago: ${paymentMethod}.` : ''}`
+  )
   revalidatePath('/cotizaciones')
   revalidatePath(`/cotizaciones/${quoteId}`)
   return { success: true }

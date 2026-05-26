@@ -73,7 +73,36 @@ export default async function CotizacionesPage() {
               </thead>
               <tbody className="divide-y divide-gray-100 bg-white">
                 {quotes.map((q) => {
-                  const sc = STATUS[q.status] ?? { label: q.status, class: 'bg-gray-100 text-gray-600' };
+                  let sc = { label: q.status, class: 'bg-gray-100 text-gray-600' };
+                  if (q.status === 'PENDING') {
+                    sc = { label: 'Pendiente', class: 'bg-amber-100 text-amber-700' };
+                  } else if (q.status === 'CANCELLED') {
+                    sc = { label: 'Cancelada', class: 'bg-red-100 text-red-700' };
+                  } else if (q.status === 'SOLD') {
+                    switch (q.fulfillmentStatus) {
+                      case 'PENDING_STOCK_CHECK':
+                        sc = { label: 'Vendida (Verificar Stock)', class: 'bg-yellow-100 text-yellow-800 border border-yellow-200' };
+                        break;
+                      case 'AWAITING_STOCK':
+                        if (q.supplierStatus === 'ORDERED') {
+                          sc = { label: 'Vendida (Prov. Solicitado)', class: 'bg-orange-100 text-orange-800 border border-orange-200' };
+                        } else {
+                          sc = { label: 'Vendida (Espera Proveedor)', class: 'bg-orange-150 text-orange-850 border border-orange-300 font-semibold' };
+                        }
+                        break;
+                      case 'PENDING_PICKUP':
+                        sc = { label: 'Vendida (Listo p/ Recoger)', class: 'bg-blue-100 text-blue-800 border border-blue-200' };
+                        break;
+                      case 'PENDING_DELIVERY':
+                        sc = { label: 'Vendida (Pendiente Entrega)', class: 'bg-indigo-100 text-indigo-800 border border-indigo-200' };
+                        break;
+                      case 'COMPLETED':
+                        sc = { label: 'Vendida (Entregado)', class: 'bg-green-100 text-green-700 border border-green-200' };
+                        break;
+                      default:
+                        sc = { label: 'Vendida', class: 'bg-green-100 text-green-700' };
+                    }
+                  }
                   return (
                     <tr key={q.id} className="hover:bg-gray-50">
                       <td className="px-6 py-3">

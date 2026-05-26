@@ -25,6 +25,7 @@ export default function QuoteFulfillmentCard({ quote }: { quote: any }) {
   const [verifyFeedback, setVerifyFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
   
   const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+  const [paymentMethod, setPaymentMethod] = useState<'EFECTIVO' | 'TARJETA' | 'TRANSFERENCIA'>('EFECTIVO');
 
   const handleVerifyStock = () => {
     setVerifyFeedback(null);
@@ -137,7 +138,7 @@ export default function QuoteFulfillmentCard({ quote }: { quote: any }) {
     setFeedback(null);
     startTransition(async () => {
       try {
-        const result = await completeFulfillment(quote.id);
+        const result = await completeFulfillment(quote.id, paymentMethod);
         if (result.success) {
           setFeedback({
             type: 'success',
@@ -449,6 +450,22 @@ export default function QuoteFulfillmentCard({ quote }: { quote: any }) {
               <p className="text-xs text-blue-700">
                 El material ha sido apartado y está físicamente listo para que el cliente lo recoja en mostrador (Will-Call).
               </p>
+              
+              <div className="bg-white p-3 rounded-lg border border-blue-100 space-y-2">
+                <label className="text-xs font-bold text-gray-700 uppercase block">
+                  Método de Pago *
+                </label>
+                <select
+                  value={paymentMethod}
+                  onChange={(e) => setPaymentMethod(e.target.value as any)}
+                  className="w-full text-xs border-gray-200 rounded-md focus:ring-brand-500 focus:border-brand-500 py-1.5"
+                >
+                  <option value="EFECTIVO">Efectivo</option>
+                  <option value="TARJETA">Tarjeta</option>
+                  <option value="TRANSFERENCIA">Transferencia</option>
+                </select>
+              </div>
+
               <button
                 onClick={handleCompletePickup}
                 disabled={isPending}
