@@ -14,6 +14,12 @@ export default function QuoteActions({ quoteId, currentStatus }: { quoteId: stri
     const fd = new FormData();
     fd.append('id', quoteId);
     fd.append('status', status);
+    
+    if (status === 'CANCELLED' && currentStatus === 'SOLD') {
+      const restore = window.confirm("Esta venta ya fue procesada. ¿Desea regresar los artículos al inventario local?");
+      fd.append('restoreStock', restore ? 'true' : 'false');
+    }
+
     startTransition(async () => {
       await updateQuoteStatus(fd);
       setShowConfirm(null);
@@ -24,6 +30,12 @@ export default function QuoteActions({ quoteId, currentStatus }: { quoteId: stri
   const handleDelete = () => {
     const fd = new FormData();
     fd.append('id', quoteId);
+    
+    if (currentStatus === 'SOLD') {
+      const restore = window.confirm("Esta cotización ya fue vendida y procesada. ¿Desea regresar los artículos al inventario local antes de eliminarla?");
+      fd.append('restoreStock', restore ? 'true' : 'false');
+    }
+
     startTransition(async () => {
       await deleteQuote(fd);
       router.refresh();
@@ -71,6 +83,14 @@ export default function QuoteActions({ quoteId, currentStatus }: { quoteId: stri
             <X size={14} /> Cancelar
           </button>
         </>
+      )}
+      {currentStatus === 'SOLD' && (
+        <button 
+          onClick={() => setShowConfirm('CANCELLED')}
+          className="btn-secondary text-xs py-1.5 px-3 flex items-center gap-1 text-red-600 border-red-100 hover:bg-red-50 animate-in fade-in"
+        >
+          <X size={14} /> Cancelar Venta
+        </button>
       )}
       <button 
         onClick={() => setShowConfirm('DELETE')}

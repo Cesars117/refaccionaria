@@ -771,10 +771,11 @@ export async function updateQuote(formData: FormData) {
 export async function updateQuoteStatus(formData: FormData) {
   const id = formData.get('id') as string
   const status = formData.get('status') as string
+  const restoreStock = formData.get('restoreStock') === 'true'
   
   const quote = await db.quote.findUnique({
     where: { id },
-    include: { items: true },
+    include: { items: { include: { part: { include: { location: true } } } } },
   })
 
   if (!quote) throw new Error('Cotización no encontrada')
@@ -806,6 +807,44 @@ export async function updateQuoteStatus(formData: FormData) {
       })
     })
     await logAudit('QUOTE_SOLD', 'QUOTE', id, `Venta cerrada: ${quote.quoteNumber}. Inventario descontado e ingreso registrado.`)
+  } else if (status === 'CANCELLED' && quote.status === 'SOLD') {
+    await db.$transaction(async (tx) => {
+      if (restoreStock) {
+        const stockWasDecremented = 
+          quote.fulfillmentStatus === 'PENDING_DELIVERY' || 
+          quote.fulfillmentStatus === 'PENDING_PICKUP' || 
+          quote.fulfillmentStatus === 'COMPLETED' || 
+          (quote.fulfillmentStatus === 'AWAITING_STOCK' && quote.supplierStatus === 'RECEIVED')
+
+        if (stockWasDecremented) {
+          for (const item of quote.items) {
+            const isCatalog = item.part.location?.name === 'Proveedor (Catálogo)'
+            if (!isCatalog) {
+              await tx.part.update({
+                where: { id: item.partId },
+                data: { quantity: { increment: item.quantity } }
+              })
+            }
+          }
+        }
+      }
+      
+      // Cancelar la cotización, resetear logística
+      await tx.quote.update({
+        where: { id },
+        data: { 
+          status: 'CANCELLED',
+          fulfillmentStatus: 'CANCELLED',
+          supplierStatus: 'NONE'
+        }
+      })
+
+      // Borrar el registro financiero de la venta
+      await tx.financialEntry.deleteMany({
+        where: { description: { contains: `Cotización ${quote.quoteNumber}` } }
+      })
+    })
+    await logAudit('QUOTE_STATUS_CHANGED', 'QUOTE', id, `Venta cancelada: ${quote.quoteNumber}. Stock devuelto: ${restoreStock}`)
   } else {
     await db.quote.update({ where: { id }, data: { status } })
     await logAudit('QUOTE_STATUS_CHANGED', 'QUOTE', id, `Estado actualizado a ${status}`)
@@ -818,9 +857,45 @@ export async function updateQuoteStatus(formData: FormData) {
 
 export async function deleteQuote(formData: FormData) {
   const id = formData.get('id') as string
-  const quote = await db.quote.findUnique({ where: { id }, select: { quoteNumber: true } })
-  await db.quote.delete({ where: { id } })
-  await logAudit('QUOTE_DELETED', 'QUOTE', id, `Cotización eliminada: ${quote?.quoteNumber || id}`)
+  const restoreStock = formData.get('restoreStock') === 'true'
+
+  const quote = await db.quote.findUnique({
+    where: { id },
+    include: { items: { include: { part: { include: { location: true } } } } }
+  })
+  
+  if (!quote) throw new Error('Cotización no encontrada')
+
+  await db.$transaction(async (tx) => {
+    if (restoreStock && quote.status === 'SOLD') {
+      const stockWasDecremented = 
+        quote.fulfillmentStatus === 'PENDING_DELIVERY' || 
+        quote.fulfillmentStatus === 'PENDING_PICKUP' || 
+        quote.fulfillmentStatus === 'COMPLETED' || 
+        (quote.fulfillmentStatus === 'AWAITING_STOCK' && quote.supplierStatus === 'RECEIVED')
+
+      if (stockWasDecremented) {
+        for (const item of quote.items) {
+          const isCatalog = item.part.location?.name === 'Proveedor (Catálogo)'
+          if (!isCatalog) {
+            await tx.part.update({
+              where: { id: item.partId },
+              data: { quantity: { increment: item.quantity } }
+            })
+          }
+        }
+      }
+    }
+
+    // Borrar el registro financiero de la venta si existía
+    await tx.financialEntry.deleteMany({
+      where: { description: { contains: `Cotización ${quote.quoteNumber}` } }
+    })
+
+    await tx.quote.delete({ where: { id } })
+  })
+
+  await logAudit('QUOTE_DELETED', 'QUOTE', id, `Cotización eliminada: ${quote.quoteNumber}. Stock restablecido: ${restoreStock}`)
   revalidatePath('/cotizaciones')
   redirect('/cotizaciones')
 }

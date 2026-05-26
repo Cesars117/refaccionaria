@@ -16,6 +16,11 @@ export default function QuoteRowActions({ quoteId, status }: { quoteId: string, 
     formData.append('id', quoteId)
     formData.append('status', newStatus)
     
+    if (newStatus === 'CANCELLED' && status === 'SOLD') {
+      const restore = window.confirm("Esta venta ya fue procesada. ¿Desea regresar los artículos al inventario local?")
+      formData.append('restoreStock', restore ? 'true' : 'false')
+    }
+
     startTransition(async () => {
       await updateQuoteStatus(formData)
       router.refresh()
@@ -26,6 +31,11 @@ export default function QuoteRowActions({ quoteId, status }: { quoteId: string, 
     const formData = new FormData()
     formData.append('id', quoteId)
     
+    if (status === 'SOLD') {
+      const restore = window.confirm("Esta cotización ya fue vendida. ¿Desea regresar los artículos al inventario local antes de eliminarla?")
+      formData.append('restoreStock', restore ? 'true' : 'false')
+    }
+
     startTransition(async () => {
       await deleteQuote(formData)
       setDeletingId(null)
@@ -54,6 +64,17 @@ export default function QuoteRowActions({ quoteId, status }: { quoteId: string, 
             <X size={16} />
           </button>
         </>
+      )}
+
+      {status === 'SOLD' && !deletingId && (
+        <button 
+          onClick={() => handleAction('CANCELLED')}
+          disabled={isPending}
+          className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-full transition-colors disabled:opacity-50" 
+          title="Cancelar Venta"
+        >
+          <X size={16} />
+        </button>
       )}
 
       {!deletingId ? (
