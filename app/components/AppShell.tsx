@@ -32,7 +32,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         "fixed inset-y-0 left-0 z-50 w-64 transform bg-white transition-transform duration-300 ease-in-out lg:relative lg:translate-x-0",
         isSidebarOpen ? "translate-x-0" : "-translate-x-full"
       )}>
-        <Sidebar />
+        <Sidebar onClose={() => setIsSidebarOpen(false)} />
         {/* Close button for mobile: only visible when sidebar is open */}
         {isSidebarOpen && (
           <button

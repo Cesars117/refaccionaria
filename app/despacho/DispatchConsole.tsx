@@ -338,7 +338,7 @@ export default function DispatchConsole({
             <table>
               <tr>
                 <td><b>Folio Cotización:</b> ${stop.quoteNumber || '—'}</td>
-                <td><b>Fecha Emisión:</b> ${new Date().toLocaleDateString('es-MX')}</td>
+                <td><b>Fecha Emisión:</b> ${new Date().toLocaleDateString('es-MX', { timeZone: 'America/Mexico_City' })}</td>
               </tr>
               <tr>
                 <td><b>Cliente:</b> ${stop.contactName}</td>

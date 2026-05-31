@@ -107,7 +107,7 @@ export default async function CotizacionesPage() {
                     <tr key={q.id} className="hover:bg-gray-50">
                       <td className="px-6 py-3">
                         <p className="text-sm font-medium text-gray-900">{q.quoteNumber}</p>
-                        <p className="text-xs text-gray-400">{new Date(q.createdAt).toLocaleDateString('es-MX')}</p>
+                        <p className="text-xs text-gray-400">{new Date(q.createdAt).toLocaleDateString('es-MX', { timeZone: 'America/Mexico_City' })}</p>
                       </td>
                       <td className="px-4 py-3 text-sm text-gray-700">{q.customer.name}</td>
                       <td className="px-4 py-3 text-sm text-gray-600">{q.vehicleRef ?? '—'}</td>

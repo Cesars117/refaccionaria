@@ -13,18 +13,31 @@ async function getDashboardData() {
   const [
     partCount,
     customerCount,
-    vehicleCount,
     quotes,
     lowStockParts,
     recentQuotes,
     financialEntries,
   ] = await Promise.all([
-    db.part.count(),
+    db.part.count({
+      where: {
+        location: {
+          name: {
+            not: 'Proveedor (Catálogo)'
+          }
+        }
+      }
+    }),
     db.customer.count(),
-    db.vehicleModel.count(),
     db.quote.findMany({ select: { status: true, total: true } }),
     db.part.findMany({
-      where: { quantity: { lte: db.part.fields.minStock } },
+      where: {
+        location: {
+          name: {
+            not: 'Proveedor (Catálogo)'
+          }
+        },
+        quantity: { lte: db.part.fields.minStock }
+      },
       take: 5,
       orderBy: { quantity: 'asc' },
       include: { category: true },
@@ -60,7 +73,7 @@ async function getDashboardData() {
   const netBalance = totalFinancialIncomes - totalFinancialExpenses;
 
   return { 
-    partCount, customerCount, vehicleCount, pendingQuotes, soldQuotes, totalRevenue, 
+    partCount, customerCount, pendingQuotes, soldQuotes, totalRevenue, 
     lowStockParts, recentQuotes, pendingExpenses, netBalance, financialEntries 
   };
 }
@@ -90,10 +103,9 @@ export default async function Home() {
       </div>
 
       {/* Stats Grid */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-8 mb-8">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7 mb-8">
         <StatCard title="Partes" value={data.partCount} icon={<Package className="h-6 w-6" />} color="blue" href="/partes" />
         <StatCard title="Clientes" value={data.customerCount} icon={<Users className="h-6 w-6" />} color="purple" href="/clientes" />
-        <StatCard title="Vehículos" value={data.vehicleCount} icon={<Car className="h-6 w-6" />} color="indigo" href="/vehiculos" />
         <StatCard title="Cots. Pend." value={data.pendingQuotes} icon={<FileText className="h-6 w-6" />} color="yellow" href="/cotizaciones?status=PENDING" />
         <StatCard title="Ventas" value={data.soldQuotes} icon={<FileText className="h-6 w-6" />} color="green" href="/cotizaciones?status=SOLD" />
         {allowRevenue && (

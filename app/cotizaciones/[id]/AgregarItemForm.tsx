@@ -19,6 +19,7 @@ export default function AgregarItemForm({ quoteId }: { quoteId: string }) {
   const [selected, setSelected] = useState<Part | null>(null);
   const [qty, setQty] = useState(1);
   const [unitPrice, setUnitPrice] = useState(0);
+  const [discountPct, setDiscountPct] = useState(0);
   const [description, setDescription] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -116,7 +117,11 @@ export default function AgregarItemForm({ quoteId }: { quoteId: string }) {
           <label className="label-field">Precio unitario</label>
           <input name="unitPrice" type="number" step="0.01" min="0" value={unitPrice} onChange={(e) => setUnitPrice(parseFloat(e.target.value))} className="input-field text-sm" />
         </div>
-        <div className="flex items-end">
+        <div>
+          <label className="label-field">Descuento %</label>
+          <input name="discountPct" type="number" step="0.1" min="0" max="100" value={discountPct} onChange={(e) => setDiscountPct(parseFloat(e.target.value))} className="input-field text-sm" />
+        </div>
+        <div className="flex items-end col-span-3">
           <button type="submit" disabled={loading || !selected} className="btn-primary w-full text-sm disabled:opacity-40 disabled:cursor-not-allowed">
             <Plus className="h-4 w-4" /> {loading ? '...' : 'Agregar'}
           </button>

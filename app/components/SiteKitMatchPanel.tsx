@@ -204,7 +204,7 @@ export function SiteKitMatchPanel({ siteKitDbId, item, onClose, onMatched }: Sit
                       {statusBadge(wip.status)}
                     </div>
                     <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '0.25rem' }}>
-                      <span>Qty: {wip.quantity}</span> · <span>{wip.location.name}</span> · <span>{new Date(wip.createdAt).toLocaleDateString()}</span>
+                      <span>Qty: {wip.quantity}</span> · <span>{wip.location.name}</span> · <span>{new Date(wip.createdAt).toLocaleDateString('es-MX', { timeZone: 'America/Mexico_City' })}</span>
                     </div>
                     {wip.siteKitSku && (
                       <div style={{ fontSize: '0.7rem', color: 'var(--primary)', marginTop: '0.25rem' }}>
@@ -270,7 +270,7 @@ export function SiteKitMatchPanel({ siteKitDbId, item, onClose, onMatched }: Sit
                             {statusBadge(wip.status)}
                           </div>
                           <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '0.25rem' }}>
-                            <span>Qty: {wip.quantity}</span> · <span>{wip.location.name}</span> · <span>{new Date(wip.createdAt).toLocaleDateString()}</span>
+                            <span>Qty: {wip.quantity}</span> · <span>{wip.location.name}</span> · <span>{new Date(wip.createdAt).toLocaleDateString('es-MX', { timeZone: 'America/Mexico_City' })}</span>
                           </div>
                           {wip.siteKitSku && (
                             <div style={{ fontSize: '0.7rem', color: 'var(--primary)', marginTop: '0.25rem' }}>

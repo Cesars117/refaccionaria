@@ -27,15 +27,16 @@ model User {
 }
 
 model Supplier {
-  id        Int            @id @default(autoincrement())
-  name      String         @unique
-  contact   String?
-  phone     String?
-  email     String?
-  address   String?
-  notes     String?
-  createdAt DateTime       @default(now())
-  parts     SupplierPart[]
+  id             Int              @id @default(autoincrement())
+  name           String           @unique
+  contact        String?
+  phone          String?
+  email          String?
+  address        String?
+  notes          String?
+  createdAt      DateTime         @default(now())
+  parts          SupplierPart[]
+  purchaseOrders PurchaseOrder[]
 
   @@map("suppliers")
 }
@@ -94,11 +95,12 @@ model Part {
   createdAt     DateTime       @default(now())
   updatedAt     DateTime       @updatedAt
   fitment       Fitment[]
-  category      Category       @relation(fields: [categoryId], references: [id])
-  location      Location       @relation(fields: [locationId], references: [id])
+  category      Category         @relation(fields: [categoryId], references: [id])
+  location      Location         @relation(fields: [locationId], references: [id])
   projectParts  ProjectPart[]
   quoteItems    QuoteItem[]
   supplierParts SupplierPart[]
+  purchaseOrderItems PurchaseOrderItem[]
 
   @@index([categoryId], map: "parts_categoryId_fkey")
   @@index([locationId], map: "parts_locationId_fkey")
@@ -229,6 +231,7 @@ model Quote {
   vehicleRef  String?
   notes       String?
   subtotal    Float       @default(0)
+  discountPct Float       @default(0)
   tax         Float       @default(0)
   total       Float       @default(0)
   createdAt   DateTime    @default(now())
@@ -254,7 +257,9 @@ model QuoteItem {
   description String
   quantity    Int    @default(1)
   unitPrice   Float  @default(0)
+  discountPct Float  @default(0)
   amount      Float  @default(0)
+  cost        Float  @default(0)
   part        Part   @relation(fields: [partId], references: [id])
   quote       Quote  @relation(fields: [quoteId], references: [id], onDelete: Cascade)
 
@@ -326,4 +331,192 @@ model DeliveryStop {
   completedAt     DateTime?
 
   @@map("delivery_stops")
+}
+
+model RecurringExpenseTemplate {
+  id          String   @id @default(cuid())
+  category    String
+  amount      Float
+  description String
+  dayOfMonth  Int      @default(1)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("recurring_expense_templates")
+}
+
+model PurchaseOrder {
+  id          String              @id @default(cuid())
+  supplierId  Int?
+  supplier    Supplier?           @relation(fields: [supplierId], references: [id])
+  invoiceRef  String?
+  notes       String?
+  totalCost   Float               @default(0)
+  status      String              @default("RECEIVED")
+  createdAt   DateTime            @default(now())
+  items       PurchaseOrderItem[]
+
+  @@map("purchase_orders")
+}
+
+model PurchaseOrderItem {
+  id          String        @id @default(cuid())
+  orderId     String
+  order       PurchaseOrder @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  partId      Int?
+  part        Part?         @relation(fields: [partId], references: [id])
+  sku         String?
+  description String
+  quantity    Int
+  unitCost    Float
+  totalCost   Float
+
+  @@index([orderId])
+  @@index([partId])
+  @@map("purchase_order_items")
+}
+
+model ShopUser {
+  id            String     @id @default(cuid())
+  email         String     @unique
+  password      String
+  name          String?
+  phone         String?
+  address       String?
+  city          String?
+  state         String?
+  zipCode       String?
+  isLocalDelivery Boolean @default(false)
+  localCity     String?
+  latitude      Float?
+  longitude     Float?
+  resetToken    String?    @unique
+  resetTokenExpiry DateTime?
+  role          String    @default("CUSTOMER")
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  orders        ShopOrder[]
+  cart          ShopCart[]
+
+  @@map("ShopUser")
+}
+
+model ShopProduct {
+  id            String     @id @default(cuid())
+  name          String
+  sku           String     @unique
+  description   String?
+  price         Float
+  stock         Int
+  internalStock Int
+  category      String
+  brand         String?
+  oemNumber     String?
+  imageUrl      String?
+  images        Json?
+  coreHeight    String?
+  coreWidth     String?
+  coreDepth     String?
+  inletDiameter  String?
+  outletDiameter String?
+  hasOilCooler   Boolean?
+  isActive      Boolean    @default(true)
+  isSameDayAvailable Boolean @default(false)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  compatibility ShopVehicleCompatibility[]
+  cartItems     ShopCartItem[]
+  orderItems    ShopOrderItem[]
+
+  @@map("ShopProduct")
+}
+
+model ShopVehicleCompatibility {
+  id            String     @id @default(cuid())
+  productId     String
+  product       ShopProduct @relation(fields: [productId], references: [id], onDelete: Cascade)
+  year          Int
+  make          String
+  model         String
+  engine        String?
+  transmission  String?
+  bodyType      String?
+  notes         String?
+  searchText    String
+  createdAt     DateTime  @default(now())
+
+  @@map("ShopVehicleCompatibility")
+  @@unique([productId, year, make, model, engine])
+}
+
+model ShopCart {
+  id            String     @id @default(cuid())
+  userId        String
+  user          ShopUser   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  items         ShopCartItem[]
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@map("ShopCart")
+  @@unique([userId])
+}
+
+model ShopCartItem {
+  id            String     @id @default(cuid())
+  cartId        String
+  cart          ShopCart   @relation(fields: [cartId], references: [id], onDelete: Cascade)
+  productId     String
+  product       ShopProduct @relation(fields: [productId], references: [id], onDelete: Cascade)
+  quantity      Int
+
+  @@map("ShopCartItem")
+  @@unique([cartId, productId])
+}
+
+model ShopOrder {
+  id            String     @id @default(cuid())
+  userId        String
+  user          ShopUser   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  deliveryType  String
+  deliveryCity  String?
+  deliveryDate  DateTime
+  shippingAddress String
+  shippingCity  String
+  shippingState String
+  shippingZip   String
+  status        String      @default("PENDING")
+  items         ShopOrderItem[]
+  subtotal      Float
+  shippingCost  Float @default(0)
+  tax           Float @default(0)
+  total         Float
+  paymentMethod String
+  paymentStatus String      @default("PENDING")
+  stripePaymentId String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@map("ShopOrder")
+}
+
+model ShopOrderItem {
+  id            String     @id @default(cuid())
+  orderId       String
+  order         ShopOrder  @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  productId     String
+  product       ShopProduct @relation(fields: [productId], references: [id])
+  quantity      Int
+  price         Float
+
+  @@map("ShopOrderItem")
+}
+
+model ShopSystemLog {
+  id            String     @id @default(cuid())
+  action        String
+  description   String?
+  userId        String?
+  createdAt     DateTime  @default(now())
+
+  @@map("ShopSystemLog")
 }

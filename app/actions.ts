@@ -758,7 +758,25 @@ export async function getQuoteById(id: string) {
 
 
 export async function createQuote(formData: FormData) {
-  const customerId = formData.get('customerId') as string
+  let customerId = formData.get('customerId') as string
+
+  if (customerId === 'publico_general') {
+    let publicCustomer = await db.customer.findFirst({
+      where: { name: 'Público General' }
+    });
+    if (!publicCustomer) {
+      publicCustomer = await db.customer.create({
+        data: {
+          name: 'Público General',
+          phone: '0000000000',
+          email: 'publico@general.com',
+          type: 'RETAIL',
+          notes: 'Cliente genérico para ventas al público general.',
+        }
+      });
+    }
+    customerId = publicCustomer.id;
+  }
 
   let quoteNumber = genQuoteNumber()
   let existing = await db.quote.findUnique({ where: { quoteNumber } })
@@ -820,6 +838,11 @@ export async function updateQuoteStatus(formData: FormData) {
         await tx.part.update({
           where: { id: item.partId },
           data: { quantity: { decrement: item.quantity } },
+        })
+        // Guardar el costo histórico de compra al momento de la venta
+        await tx.quoteItem.update({
+          where: { id: item.id },
+          data: { cost: item.part.cost || 0 },
         })
       }
       await tx.quote.update({
@@ -928,6 +951,9 @@ export async function deleteQuote(formData: FormData) {
     await tx.quote.delete({ where: { id } })
   })
 
+  // Limpiar partes de catálogo huérfanas
+  await cleanOrphanedCatalogParts()
+
   await logAudit('QUOTE_DELETED', 'QUOTE', id, `Cotización eliminada: ${quote.quoteNumber}. Stock restablecido: ${restoreStock}`)
   revalidatePath('/cotizaciones')
   redirect('/cotizaciones')
@@ -1034,7 +1060,16 @@ export async function addQuoteItem(formData: FormData) {
   }
   const quantity = parseInt(formData.get('quantity') as string || '1')
   const unitPrice = parseFloat(formData.get('unitPrice') as string || '0')
-  const amount = quantity * unitPrice
+  const discountPct = parseFloat(formData.get('discountPct') as string || '0')
+  const discountFactor = 1 - (discountPct / 100)
+  const amount = Math.round(quantity * unitPrice * discountFactor * 100) / 100
+
+  // Obtener el costo actual de la refacción
+  const partObj = await db.part.findUnique({
+    where: { id: partId },
+    select: { cost: true }
+  })
+  const cost = partObj?.cost || 0
 
   await db.quoteItem.create({
     data: {
@@ -1043,11 +1078,13 @@ export async function addQuoteItem(formData: FormData) {
       description: formData.get('description') as string,
       quantity,
       unitPrice,
+      discountPct,
       amount,
+      cost,
     },
   })
 
-  await logAudit('QUOTE_ITEM_ADDED', 'QUOTE', quoteId, `Parte añadida: ${formData.get('description')} x${quantity}`)
+  await logAudit('QUOTE_ITEM_ADDED', 'QUOTE', quoteId, `Parte añadida: ${formData.get('description')} x${quantity}${discountPct > 0 ? ` (${discountPct}% desc.)` : ''}`)
   await recalcQuote(quoteId)
   revalidatePath(`/cotizaciones/${quoteId}`)
 }
@@ -1060,6 +1097,7 @@ export async function removeQuoteItem(formData: FormData) {
   await db.quoteItem.delete({ where: { id } })
   await logAudit('QUOTE_ITEM_REMOVED', 'QUOTE', item.quoteId, `Parte removida: ${item.description}`)
   await recalcQuote(item.quoteId)
+  await cleanOrphanedCatalogParts()
   revalidatePath(`/cotizaciones/${item.quoteId}`)
 }
 
@@ -1067,25 +1105,58 @@ export async function updateQuoteItem(formData: FormData) {
   const id = formData.get('id') as string
   const quantity = parseInt(formData.get('quantity') as string)
   const unitPrice = parseFloat(formData.get('unitPrice') as string)
-  const amount = quantity * unitPrice
+  const discountPct = parseFloat(formData.get('discountPct') as string || '0')
+  const discountFactor = 1 - (discountPct / 100)
+  const amount = Math.round(quantity * unitPrice * discountFactor * 100) / 100
 
   const item = await db.quoteItem.update({
     where: { id },
-    data: { quantity, unitPrice, amount },
+    data: { quantity, unitPrice, discountPct, amount },
     select: { quoteId: true, description: true }
   })
 
-  await logAudit('QUOTE_ITEM_UPDATED', 'QUOTE', item.quoteId, `Item actualizado: ${item.description} (x${quantity})`)
+  await logAudit('QUOTE_ITEM_UPDATED', 'QUOTE', item.quoteId, `Item actualizado: ${item.description} (x${quantity}${discountPct > 0 ? `, ${discountPct}% desc.` : ''})`)
   await recalcQuote(item.quoteId)
   revalidatePath(`/cotizaciones/${item.quoteId}`)
 }
 
 async function recalcQuote(quoteId: string) {
   const items = await db.quoteItem.findMany({ where: { quoteId } })
-  const subtotal = items.reduce((s, i) => s + i.amount, 0)
-  const tax = Math.round(subtotal * 0.16 * 100) / 100
-  const total = subtotal + tax
+  // amount ya incluye el descuento del ítem y es IVA incluido
+  const total = Math.round(items.reduce((s, i) => s + i.amount, 0) * 100) / 100
+  const subtotal = Math.round((total / 1.16) * 100) / 100
+  const tax = Math.round((total - subtotal) * 100) / 100
   await db.quote.update({ where: { id: quoteId }, data: { subtotal, tax, total } })
+}
+
+async function cleanOrphanedCatalogParts() {
+  try {
+    const loc = await db.location.findFirst({ where: { name: 'Proveedor (Catálogo)' } })
+    if (!loc) return
+    
+    // Buscar todas las partes asociadas con esta ubicación
+    const catalogParts = await db.part.findMany({
+      where: { locationId: loc.id },
+      select: { id: true }
+    })
+    
+    for (const part of catalogParts) {
+      // Verificar si la parte sigue estando en alguna cotización, proyecto o compra
+      const [quoteItemsCount, projectPartsCount, supplierPartsCount] = await Promise.all([
+        db.quoteItem.count({ where: { partId: part.id } }),
+        db.projectPart.count({ where: { partId: part.id } }),
+        db.supplierPart.count({ where: { partId: part.id } }),
+      ])
+      
+      // Si no tiene referencias, eliminar de forma segura
+      if (quoteItemsCount === 0 && projectPartsCount === 0 && supplierPartsCount === 0) {
+        await db.part.delete({ where: { id: part.id } })
+        console.log(`[CLEANUP] Deleted orphaned catalog part ID: ${part.id}`)
+      }
+    }
+  } catch (err) {
+    console.error('[CLEANUP] Failed to clean up orphaned catalog parts:', err)
+  }
 }
 
 // ─── VEHICLE MODELS (fitment catalog) ─────────────────────
@@ -1398,6 +1469,42 @@ export async function getFinancialEntries() {
   if (!canManageFinances(session?.user?.role)) {
     throw new Error('No autorizado')
   }
+
+  const templates = await db.recurringExpenseTemplate.findMany()
+  if (templates.length > 0) {
+    const today = new Date()
+    const year = today.getFullYear()
+    const month = today.getMonth() // 0-11
+    const monthsSpanish = [
+      'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
+      'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'
+    ]
+    const monthName = monthsSpanish[month]
+
+    for (const template of templates) {
+      const expectedDesc = `${template.description} (${monthName} ${year})`
+      const existing = await db.financialEntry.findFirst({
+        where: {
+          type: 'EXPENSE',
+          description: expectedDesc,
+        }
+      })
+
+      if (!existing) {
+        await db.financialEntry.create({
+          data: {
+            type: 'EXPENSE',
+            category: template.category,
+            amount: template.amount,
+            description: expectedDesc,
+            isPaid: false,
+            date: new Date(year, month, Math.min(template.dayOfMonth || 1, 28)),
+          }
+        })
+      }
+    }
+  }
+
   return db.financialEntry.findMany({
     orderBy: { date: 'desc' },
   })
@@ -1415,7 +1522,15 @@ export async function createFinancialEntry(formData: FormData) {
   const description = formData.get('description') as string
   const isPaid = formData.get('isPaid') === 'true'
   const dateStr = formData.get('date') as string
-  const date = dateStr ? new Date(dateStr) : new Date()
+  const isRecurring = formData.get('isRecurring') === 'true'
+  const dayOfMonth = parseInt(formData.get('dayOfMonth') as string || '1')
+
+  let date = dateStr ? new Date(dateStr) : new Date()
+  if (isRecurring && type === 'EXPENSE' && !dateStr) {
+    const today = new Date()
+    const targetMonth = today.getDate() > dayOfMonth ? today.getMonth() + 1 : today.getMonth()
+    date = new Date(today.getFullYear(), targetMonth, Math.min(dayOfMonth, 28))
+  }
 
   const entry = await db.financialEntry.create({
     data: {
@@ -1498,6 +1613,117 @@ export async function toggleFinancialPaid(formData: FormData) {
 
   revalidatePath('/reportes/finanzas')
   return { success: true }
+}
+
+// ─── GESTIÓN DE GASTOS RECURRENTES ─────────────────────────
+export async function getRecurringExpenseTemplates() {
+  const session = await getServerSession(authOptions)
+  if (!canManageFinances(session?.user?.role)) {
+    throw new Error('No autorizado')
+  }
+  return db.recurringExpenseTemplate.findMany({
+    orderBy: { description: 'asc' },
+  })
+}
+
+export async function createRecurringExpenseTemplate(formData: FormData) {
+  const session = await getServerSession(authOptions)
+  if (!canManageFinances(session?.user?.role)) {
+    throw new Error('No autorizado')
+  }
+
+  const category = formData.get('category') as string
+  const amount = parseFloat(formData.get('amount') as string)
+  const description = formData.get('description') as string
+
+  const template = await db.recurringExpenseTemplate.create({
+    data: {
+      category,
+      amount,
+      description,
+    },
+  })
+
+  await logAudit('RECURRING_TEMPLATE_CREATED', 'FINANCIAL', template.id, `Plantilla Gasto Recurrente: ${description} (${amount})`)
+  revalidatePath('/reportes/finanzas')
+  return { success: true }
+}
+
+export async function deleteRecurringExpenseTemplate(formData: FormData) {
+  const session = await getServerSession(authOptions)
+  if (!canManageFinances(session?.user?.role)) {
+    throw new Error('No autorizado')
+  }
+
+  const id = formData.get('id') as string
+  const template = await db.recurringExpenseTemplate.findUnique({ where: { id } })
+  
+  if (template) {
+    await db.recurringExpenseTemplate.delete({ where: { id } })
+    await logAudit('RECURRING_TEMPLATE_DELETED', 'FINANCIAL', id, `Plantilla eliminada: ${template.description}`)
+  }
+
+  revalidatePath('/reportes/finanzas')
+  return { success: true }
+}
+
+export async function generateMonthlyExpenses(formData: FormData) {
+  const session = await getServerSession(authOptions)
+  if (!canManageFinances(session?.user?.role)) {
+    throw new Error('No autorizado')
+  }
+
+  const dateStr = formData.get('date') as string // "YYYY-MM"
+  const date = dateStr ? new Date(dateStr + '-02') : new Date() // Use 2nd day of month to avoid timezone shifting issues
+  const year = date.getFullYear()
+  const month = date.getMonth() + 1 // 1-12
+
+  const templates = await db.recurringExpenseTemplate.findMany()
+  if (templates.length === 0) {
+    return { success: false, error: 'No hay plantillas de gastos recurrentes creadas.' }
+  }
+
+  const generatedCount = { created: 0, skipped: 0 }
+
+  // Get month name in Spanish for description
+  const monthsSpanish = [
+    'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
+    'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'
+  ]
+  const monthName = monthsSpanish[month - 1]
+
+  for (const template of templates) {
+    // Check if this expense was already registered for this month/year
+    const expectedDesc = `${template.description} (${monthName} ${year})`
+    
+    const existing = await db.financialEntry.findFirst({
+      where: {
+        type: 'EXPENSE',
+        description: expectedDesc,
+      }
+    })
+
+    if (!existing) {
+      // Create a pending (isPaid: false) FinancialEntry for this template
+      await db.financialEntry.create({
+        data: {
+          type: 'EXPENSE',
+          category: template.category,
+          amount: template.amount,
+          description: expectedDesc,
+          isPaid: false, // Starts as unpaid/pending
+          date: new Date(year, month - 1, 1), // 1st of month
+        }
+      })
+      generatedCount.created++
+    } else {
+      generatedCount.skipped++
+    }
+  }
+
+  await logAudit('RECURRING_EXPENSES_GENERATED', 'FINANCIAL', `${year}-${month}`, `Gastos mensuales generados para ${monthName} ${year}. Creados: ${generatedCount.created}, Saltados: ${generatedCount.skipped}`)
+  revalidatePath('/reportes/finanzas')
+  return { success: true, ...generatedCount }
 }
 
 // ─── LOGÍSTICA, ENTREGAS Y DESPACHO ───────────────────────
@@ -2116,4 +2342,255 @@ export async function findItemByBarcode(barcode: string) {
   }
 }
 
+
+// ─── GESTIÓN FINANCIERA: REGISTRO CON OPCIÓN RECURRENTE ───
+export async function createFinancialEntryWithRecurring(formData: FormData) {
+  const session = await getServerSession(authOptions)
+  if (!canManageFinances(session?.user?.role)) {
+    throw new Error('No autorizado')
+  }
+
+  const type = formData.get('type') as string
+  const category = formData.get('category') as string
+  const amount = parseFloat(formData.get('amount') as string)
+  const description = formData.get('description') as string
+  const isPaid = formData.get('isPaid') === 'true'
+  const dateStr = formData.get('date') as string
+  const isRecurring = formData.get('isRecurring') === 'true'
+  const dayOfMonth = parseInt(formData.get('dayOfMonth') as string || '1')
+
+  let date = dateStr ? new Date(dateStr) : new Date()
+  if (isRecurring && type === 'EXPENSE' && !dateStr) {
+    const today = new Date()
+    const targetMonth = today.getDate() > dayOfMonth ? today.getMonth() + 1 : today.getMonth()
+    date = new Date(today.getFullYear(), targetMonth, Math.min(dayOfMonth, 28))
+  }
+
+  // Crear el registro de caja normal
+  let entryDescription = description
+  if (isRecurring && type === 'EXPENSE') {
+    const year = date.getFullYear()
+    const month = date.getMonth()
+    const monthsSpanish = [
+      'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
+      'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'
+    ]
+    const monthName = monthsSpanish[month]
+    entryDescription = `${description} (${monthName} ${year})`
+  }
+
+  const entry = await db.financialEntry.create({
+    data: { type, category, amount, description: entryDescription, isPaid, date },
+  })
+  await logAudit('FINANCIAL_CREATED', 'FINANCIAL', entry.id, `${type}: ${entryDescription} (${amount})${isRecurring ? ' [RECURRENTE]' : ''}`)
+
+  // Si es recurrente, crear/actualizar la plantilla
+  if (isRecurring && type === 'EXPENSE') {
+    const existing = await db.recurringExpenseTemplate.findFirst({
+      where: { description }
+    })
+    if (existing) {
+      await db.recurringExpenseTemplate.update({
+        where: { id: existing.id },
+        data: {
+          category,
+          amount,
+          dayOfMonth,
+        }
+      })
+      await logAudit('RECURRING_TEMPLATE_UPDATED', 'FINANCIAL', existing.id, `Plantilla actualizada: ${description} (${amount}) - Día ${dayOfMonth}`)
+    } else {
+      await db.recurringExpenseTemplate.create({
+        data: { category, amount, description, dayOfMonth }
+      })
+      await logAudit('RECURRING_TEMPLATE_CREATED', 'FINANCIAL', description, `Plantilla auto-creada: ${description} (${amount}) - Día ${dayOfMonth} c/mes`)
+    }
+  }
+
+  revalidatePath('/reportes/finanzas')
+  return { success: true }
+}
+
+// ─── PEDIDOS DE PROVEEDOR ─────────────────────────────────
+export async function getPurchaseOrders() {
+  const session = await getServerSession(authOptions)
+  if (!canManageFinances(session?.user?.role)) {
+    throw new Error('No autorizado')
+  }
+  return db.purchaseOrder.findMany({
+    orderBy: { createdAt: 'desc' },
+    include: {
+      supplier: true,
+      items: {
+        include: { part: { select: { id: true, name: true, sku: true, price: true } } }
+      }
+    }
+  })
+}
+
+export async function createPurchaseOrder(formData: FormData) {
+  const session = await getServerSession(authOptions)
+  if (!canManageInventory(normalizeRole(session?.user?.role))) {
+    throw new Error('No autorizado: solo administradores o despachadores')
+  }
+
+  const supplierIdStr = formData.get('supplierId') as string
+  const supplierId = supplierIdStr ? parseInt(supplierIdStr) : null
+  const invoiceRef = (formData.get('invoiceRef') as string) || null
+  const notes = (formData.get('notes') as string) || null
+  const itemsJson = (formData.get('items') as string) || (formData.get('itemsBought') as string)
+  const items: Array<{
+    sku: string
+    description: string
+    quantity: number
+    unitCost: number
+    suggestedPrice: number
+    categoryId?: number
+    locationId?: number
+    existingPartId?: number
+  }> = itemsJson ? JSON.parse(itemsJson) : []
+
+  if (!items || items.length === 0) {
+    return { success: false, error: 'No hay artículos en el pedido.' }
+  }
+
+  const totalCost = items.reduce((s, i) => s + i.unitCost * i.quantity, 0)
+
+  const result = await db.$transaction(async (tx) => {
+    // 1. Crear el PurchaseOrder
+    const order = await tx.purchaseOrder.create({
+      data: {
+        supplierId: supplierId || null,
+        invoiceRef,
+        notes,
+        totalCost,
+        status: 'RECEIVED',
+      }
+    })
+
+    // 2. Procesar cada artículo: actualizar o crear parte
+    const orderItems = []
+    for (const item of items) {
+      let partId: number | null = null
+
+      if (item.existingPartId) {
+        // Actualizar parte existente: sumar stock y actualizar costo
+        await tx.part.update({
+          where: { id: item.existingPartId },
+          data: {
+            quantity: { increment: item.quantity },
+            cost: item.unitCost,
+            // Solo actualizar precio si se proporcionó uno nuevo
+            ...(item.suggestedPrice > 0 ? { price: item.suggestedPrice } : {}),
+          }
+        })
+        partId = item.existingPartId
+      } else {
+        // Crear parte nueva
+        const newPart = await tx.part.create({
+          data: {
+            name: item.description,
+            sku: item.sku || null,
+            quantity: item.quantity,
+            cost: item.unitCost,
+            price: item.suggestedPrice > 0 ? item.suggestedPrice : item.unitCost,
+            categoryId: item.categoryId,
+            locationId: item.locationId,
+            minStock: 1,
+          }
+        })
+        partId = newPart.id
+      }
+
+      // 3. Crear item del pedido
+      const orderItem = await tx.purchaseOrderItem.create({
+        data: {
+          orderId: order.id,
+          partId,
+          sku: item.sku || null,
+          description: item.description,
+          quantity: item.quantity,
+          unitCost: item.unitCost,
+          totalCost: item.unitCost * item.quantity,
+        }
+      })
+      orderItems.push(orderItem)
+    }
+
+    // 4. Registrar automáticamente la salida de caja
+    const supplierName = supplierId
+      ? (await tx.supplier.findUnique({ where: { id: supplierId }, select: { name: true } }))?.name || 'Proveedor'
+      : 'Proveedor'
+    
+    await tx.financialEntry.create({
+      data: {
+        type: 'EXPENSE',
+        category: 'SUPPLIER_PURCHASE',
+        amount: totalCost,
+        description: `Compra a ${supplierName}${invoiceRef ? ` (Factura: ${invoiceRef})` : ''} — ${items.length} artículos`,
+        isPaid: true,
+        date: new Date(),
+      }
+    })
+
+    return { orderId: order.id, itemCount: orderItems.length }
+  })
+
+  await logAudit('PURCHASE_ORDER_CREATED', 'INVENTORY', result.orderId, `Pedido proveedor: ${items.length} artículos, costo total: $${totalCost.toFixed(2)}`)
+  revalidatePath('/partes')
+  revalidatePath('/reportes/finanzas')
+  return { success: true, ...result }
+}
+
+export async function getSoldPartsProfitability() {
+  const session = await getServerSession(authOptions)
+  if (!canManageFinances(session?.user?.role)) {
+    throw new Error('No autorizado')
+  }
+
+  const items = await db.quoteItem.findMany({
+    where: {
+      quote: {
+        status: 'SOLD',
+      },
+    },
+    include: {
+      quote: {
+        select: {
+          quoteNumber: true,
+          createdAt: true,
+          customer: {
+            select: {
+              name: true,
+            },
+          },
+        },
+      },
+      part: {
+        select: {
+          sku: true,
+        },
+      },
+    },
+    orderBy: {
+      quote: {
+        createdAt: 'desc',
+      },
+    },
+  })
+
+  return items.map((item) => ({
+    id: item.id,
+    sku: item.part?.sku || 'S/K',
+    description: item.description,
+    quantity: item.quantity,
+    cost: item.cost || 0,
+    unitPrice: item.unitPrice,
+    discountPct: item.discountPct,
+    amount: item.amount,
+    quoteNumber: item.quote.quoteNumber,
+    customerName: item.quote.customer.name,
+    createdAt: item.quote.createdAt.toISOString(),
+  }))
+}
 

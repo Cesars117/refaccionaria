@@ -143,7 +143,7 @@ export function ProjectsPageClient({ projects }: ProjectsPageClientProps) {
                   </span>
                   <span style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--text-secondary)', fontSize: '0.875rem' }}>
                     <Calendar size={14} />
-                    Actualizado: {new Date(project.updatedAt).toLocaleDateString()}
+                    Actualizado: {new Date(project.updatedAt).toLocaleDateString('es-MX', { timeZone: 'America/Mexico_City' })}
                   </span>
                 </div>
               </div>

@@ -1,7 +1,7 @@
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { canManageFinances } from '@/lib/rbac'
-import { getFinancialEntries } from '@/app/actions'
+import { getFinancialEntries, getPurchaseOrders, getRecurringExpenseTemplates, getSoldPartsProfitability } from '@/app/actions'
 import { redirect } from 'next/navigation'
 import FinancialClient from './FinancialClient'
 import Link from 'next/link'
@@ -16,7 +16,12 @@ export default async function FinanzasPage() {
     redirect('/')
   }
 
-  const entries = await getFinancialEntries().catch(() => [])
+  const [entries, purchaseOrders, recurringTemplates, soldPartsProfitability] = await Promise.all([
+    getFinancialEntries().catch(() => []),
+    getPurchaseOrders().catch(() => []),
+    getRecurringExpenseTemplates().catch(() => []),
+    getSoldPartsProfitability().catch(() => []),
+  ])
 
   return (
     <div className="p-6 max-w-7xl mx-auto">
@@ -27,11 +32,16 @@ export default async function FinanzasPage() {
             Volver a Reportes
           </Link>
           <h1 className="text-2xl font-bold text-gray-900">Gestión Financiera</h1>
-          <p className="text-sm text-gray-500">Control de inversiones, renta, nómina y flujos de caja.</p>
+          <p className="text-sm text-gray-500">Control de inversiones, renta, nómina, flujos de caja y rentabilidad.</p>
         </div>
       </div>
 
-      <FinancialClient initialEntries={JSON.parse(JSON.stringify(entries))} />
+      <FinancialClient 
+        initialEntries={JSON.parse(JSON.stringify(entries))} 
+        initialPurchaseOrders={JSON.parse(JSON.stringify(purchaseOrders))}
+        recurringTemplates={JSON.parse(JSON.stringify(recurringTemplates))}
+        soldPartsProfitability={JSON.parse(JSON.stringify(soldPartsProfitability))}
+      />
     </div>
   )
 }

@@ -1,9 +1,8 @@
 import { getCustomerById } from '@/app/actions';
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
-import { ArrowLeft, FileText, Truck, MapPin } from 'lucide-react';
+import { ArrowLeft, FileText, MapPin } from 'lucide-react';
 import { formatCurrency } from '@/lib/utils';
-import NuevaUnidadForm from './NuevaUnidadForm';
 
 export const dynamic = 'force-dynamic';
 
@@ -11,8 +10,6 @@ export default async function ClienteDetailPage({ params }: { params: Promise<{ 
   const { id } = await params;
   const customer = await getCustomerById(id);
   if (!customer) notFound();
-
-  const isFleet = customer.type === 'FLEET';
 
   return (
     <div className="p-6 max-w-5xl">
@@ -25,11 +22,6 @@ export default async function ClienteDetailPage({ params }: { params: Promise<{ 
           <div>
             <div className="flex items-center gap-2">
               <h1 className="text-2xl font-bold text-gray-900">{customer.name}</h1>
-              <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${
-                isFleet ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700'
-              }`}>
-                {isFleet ? 'Flota' : 'Retail'}
-              </span>
             </div>
             <p className="text-sm text-gray-500">{customer.phone}{customer.email ? ` · ${customer.email}` : ''}</p>
           </div>
@@ -43,89 +35,58 @@ export default async function ClienteDetailPage({ params }: { params: Promise<{ 
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Info */}
-        <div className="space-y-4">
-          <div className="card p-4">
-            <h2 className="text-sm font-semibold text-gray-700 mb-3">Datos del cliente</h2>
-            <dl className="space-y-2 text-sm">
-              {customer.address && (
-                <div>
-                  <dt className="text-gray-400">Dirección</dt>
-                  <dd className="text-gray-900 break-words">{customer.address}</dd>
-                </div>
-              )}
-              {customer.rfc && (
-                <div>
-                  <dt className="text-gray-400">RFC</dt>
-                  <dd className="text-gray-900 break-words">{customer.rfc}</dd>
-                </div>
-              )}
-              {customer.notes && (
-                <div>
-                  <dt className="text-gray-400">Notas</dt>
-                  <dd className="text-gray-900 mt-1">{renderNotes(customer.notes)}</dd>
-                </div>
-              )}
-            </dl>
-          </div>
-
-          {/* Recent quotes */}
-          <div className="card">
-            <div className="card-header flex items-center justify-between">
-              <h2 className="text-sm font-semibold text-gray-700 flex items-center gap-2">
-                <FileText className="h-4 w-4" /> Cotizaciones
-              </h2>
-              <Link href={`/cotizaciones/nuevo?customerId=${customer.id}`} className="text-xs text-brand-600">+ Nueva</Link>
+        <div className="space-y-4 lg:col-span-3">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="card p-4">
+              <h2 className="text-sm font-semibold text-gray-700 mb-3">Datos del cliente</h2>
+              <dl className="space-y-2 text-sm">
+                {customer.address && (
+                  <div>
+                    <dt className="text-gray-400">Dirección</dt>
+                    <dd className="text-gray-900 break-words">{customer.address}</dd>
+                  </div>
+                )}
+                {customer.rfc && (
+                  <div>
+                    <dt className="text-gray-400">RFC</dt>
+                    <dd className="text-gray-900 break-words">{customer.rfc}</dd>
+                  </div>
+                )}
+                {customer.notes && (
+                  <div>
+                    <dt className="text-gray-400">Notas</dt>
+                    <dd className="text-gray-900 mt-1">{renderNotes(customer.notes)}</dd>
+                  </div>
+                )}
+              </dl>
             </div>
-            <div className="divide-y divide-gray-100">
-              {customer.quotes.length === 0 ? (
-                <p className="px-4 py-6 text-center text-xs text-gray-400">Sin cotizaciones</p>
-              ) : (
-                customer.quotes.map((q) => (
-                  <Link key={q.id} href={`/cotizaciones/${q.id}`} className="flex items-center justify-between px-4 py-2.5 hover:bg-gray-50">
-                    <p className="text-xs font-medium text-gray-900">{q.quoteNumber}</p>
-                    <div className="text-right">
-                      <p className="text-xs font-semibold">{formatCurrency(q.total)}</p>
-                      <StatusPill status={q.status} />
-                    </div>
-                  </Link>
-                ))
-              )}
+
+            {/* Recent quotes */}
+            <div className="card">
+              <div className="card-header flex items-center justify-between">
+                <h2 className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+                  <FileText className="h-4 w-4" /> Cotizaciones
+                </h2>
+                <Link href={`/cotizaciones/nuevo?customerId=${customer.id}`} className="text-xs text-brand-600">+ Nueva</Link>
+              </div>
+              <div className="divide-y divide-gray-100">
+                {customer.quotes.length === 0 ? (
+                  <p className="px-4 py-6 text-center text-xs text-gray-400">Sin cotizaciones</p>
+                ) : (
+                  customer.quotes.map((q) => (
+                    <Link key={q.id} href={`/cotizaciones/${q.id}`} className="flex items-center justify-between px-4 py-2.5 hover:bg-gray-50">
+                      <p className="text-xs font-medium text-gray-900">{q.quoteNumber}</p>
+                      <div className="text-right">
+                        <p className="text-xs font-semibold">{formatCurrency(q.total)}</p>
+                        <StatusPill status={q.status} />
+                      </div>
+                    </Link>
+                  ))
+                )}
+              </div>
             </div>
           </div>
         </div>
-
-        {/* Fleet section */}
-        {isFleet && customer.fleet && (
-          <div className="lg:col-span-2 space-y-4">
-            <div className="card">
-              <div className="card-header flex items-center justify-between">
-                <h2 className="text-base font-semibold text-gray-900 flex items-center gap-2">
-                  <Truck className="h-4 w-4 text-purple-600" /> {customer.fleet.name}
-                </h2>
-              </div>
-
-              {/* Units */}
-              <div className="px-6 pb-2">
-                <div className="flex items-center justify-between mb-3">
-                  <p className="text-sm font-medium text-gray-700">Unidades ({customer.fleet.units.length})</p>
-                </div>
-                {customer.fleet.units.length === 0 ? (
-                  <p className="text-xs text-gray-400 mb-3">Sin unidades registradas.</p>
-                ) : (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-4">
-                    {customer.fleet.units.map((u) => (
-                      <div key={u.id} className="rounded-lg border border-gray-200 p-3 text-sm">
-                        <p className="font-medium text-gray-900">{u.year} {u.make} {u.model}</p>
-                        <p className="text-xs text-gray-400">{u.plate ?? 'Sin placas'} · {u.mileage?.toLocaleString() ?? '—'} km</p>
-                      </div>
-                    ))}
-                  </div>
-                )}
-                <NuevaUnidadForm fleetId={customer.fleet.id} />
-              </div>
-            </div>
-          </div>
-        )}
       </div>
     </div>
   );

@@ -102,6 +102,7 @@ export default async function CotizacionDetailPage({ params }: { params: Promise
                 <th className="table-header px-4 py-2">Descripción</th>
                 <th className="table-header px-3 py-2 text-right">Cant.</th>
                 <th className="table-header px-3 py-2 text-right">P. Unit.</th>
+                <th className="table-header px-3 py-2 text-right">Desc.</th>
                 <th className="table-header px-3 py-2 text-right">Importe</th>
                 {isOpen && <th className="px-3 py-2" />}
               </tr>
@@ -113,17 +114,17 @@ export default async function CotizacionDetailPage({ params }: { params: Promise
             </tbody>
             <tfoot className="bg-gray-50">
               <tr>
-                <td colSpan={isOpen ? 3 : 3} className="px-4 py-2 text-right text-xs text-gray-500">Subtotal</td>
+                <td colSpan={isOpen ? 5 : 4} className="px-4 py-2 text-right text-xs text-gray-500">Subtotal</td>
                 <td className="px-3 py-2 text-right text-sm">{formatCurrency(quote.subtotal)}</td>
                 {isOpen && <td />}
               </tr>
               <tr>
-                <td colSpan={isOpen ? 3 : 3} className="px-4 py-2 text-right text-xs text-gray-500">IVA 16%</td>
+                <td colSpan={isOpen ? 5 : 4} className="px-4 py-2 text-right text-xs text-gray-500">IVA 16%</td>
                 <td className="px-3 py-2 text-right text-sm">{formatCurrency(quote.tax)}</td>
                 {isOpen && <td />}
               </tr>
               <tr>
-                <td colSpan={isOpen ? 3 : 3} className="px-4 py-2 text-right text-sm font-semibold text-gray-700">Total</td>
+                <td colSpan={isOpen ? 5 : 4} className="px-4 py-2 text-right text-sm font-semibold text-gray-700">Total</td>
                 <td className="px-3 py-2 text-right text-base font-bold text-gray-900">{formatCurrency(quote.total)}</td>
                 {isOpen && <td />}
               </tr>

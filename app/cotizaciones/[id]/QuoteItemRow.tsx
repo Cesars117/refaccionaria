@@ -18,7 +18,8 @@ export default function QuoteItemRow({
   const [isPending, startTransition] = useTransition()
   const [formData, setFormData] = useState({
     quantity: item.quantity,
-    unitPrice: item.unitPrice
+    unitPrice: item.unitPrice,
+    discountPct: item.discountPct ?? 0,
   })
 
   const handleUpdate = () => {
@@ -26,6 +27,7 @@ export default function QuoteItemRow({
     fd.append('id', item.id)
     fd.append('quantity', String(formData.quantity))
     fd.append('unitPrice', String(formData.unitPrice))
+    fd.append('discountPct', String(formData.discountPct || 0))
     
     startTransition(async () => {
       await updateQuoteItem(fd)
@@ -67,8 +69,19 @@ export default function QuoteItemRow({
             className="w-24 text-right text-sm border-gray-200 rounded focus:ring-brand-500"
           />
         </td>
+        <td className="px-3 py-2">
+          <input 
+            type="number" 
+            step="0.1"
+            min="0"
+            max="100"
+            value={formData.discountPct} 
+            onChange={(e) => setFormData({ ...formData, discountPct: parseFloat(e.target.value) })}
+            className="w-20 text-right text-sm border-gray-200 rounded focus:ring-brand-500"
+          />
+        </td>
         <td className="px-3 py-2 text-right text-sm font-bold text-brand-700">
-          {formatCurrency(formData.quantity * formData.unitPrice)}
+          {formatCurrency(formData.quantity * formData.unitPrice * (1 - ((formData.discountPct || 0) / 100)))}
         </td>
         <td className="px-3 py-2 text-right">
           <div className="flex justify-end gap-1">
@@ -95,9 +108,13 @@ export default function QuoteItemRow({
     <tr className="hover:bg-gray-50 group">
       <td className="px-4 py-2 text-sm text-gray-900">
         <div>{item.description}</div>
+        {item.discountPct > 0 && (
+          <div className="text-xs text-purple-600 mt-1">{item.discountPct}% descuento aplicado</div>
+        )}
       </td>
       <td className="px-3 py-2 text-right text-sm">{item.quantity}</td>
       <td className="px-3 py-2 text-right text-sm">{formatCurrency(item.unitPrice)}</td>
+      <td className="px-3 py-2 text-right text-sm">{item.discountPct > 0 ? `${item.discountPct}%` : '—'}</td>
       <td className="px-3 py-2 text-right text-sm font-medium">{formatCurrency(item.amount)}</td>
       {isOpen && (
         <td className="px-3 py-2 text-right">

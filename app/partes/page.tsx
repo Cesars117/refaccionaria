@@ -57,10 +57,15 @@ export default function PartesPage() {
         title="Partes"
         description={`${parts.length} partes en catálogo`}
         action={
-          <Link href="/partes/nuevo" className="btn-primary">
-            <Plus className="h-4 w-4" />
-            Nueva Parte
-          </Link>
+          <div className="flex gap-2">
+            <Link href="/partes/entrada-rapida" className="btn-secondary flex items-center gap-1.5 py-2 px-3 border border-gray-300 rounded-lg hover:bg-gray-50 text-xs font-semibold">
+              ⚡ Entrada Rápida
+            </Link>
+            <Link href="/partes/nuevo" className="btn-primary flex items-center gap-1 py-2 px-3 bg-brand-600 hover:bg-brand-700 text-white rounded-lg text-xs font-semibold">
+              <Plus className="h-4 w-4" />
+              Nueva Parte
+            </Link>
+          </div>
         }
       />
 

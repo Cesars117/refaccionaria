@@ -9,134 +9,86 @@ async function createBackup() {
   const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
   const backupDir = path.join(process.cwd(), 'backups');
   
-  // Crear directorio de backups si no existe
   if (!fs.existsSync(backupDir)) {
     fs.mkdirSync(backupDir, { recursive: true });
     console.log('📁 Directorio backups creado');
   }
 
   try {
-    console.log('🚀 Iniciando backup automático...');
+    console.log('🚀 Iniciando backup de base de datos MySQL...');
     console.log(`📅 Fecha: ${new Date().toLocaleString()}`);
     
-    // Obtener todos los datos
-    const [items, categories, locations] = await Promise.all([
-      prisma.item.findMany({
-        include: {
-          category: true,
-          location: true
-        }
-      }),
-      prisma.category.findMany(),
-      prisma.location.findMany()
-    ]);
+    // Lista de todas las tablas en la base de datos compartida
+    const tables = [
+      'users',
+      'suppliers',
+      'supplier_parts',
+      'categories',
+      'locations',
+      'parts',
+      'vehicle_models',
+      'fitment',
+      'customers',
+      'fleets',
+      'fleet_units',
+      'maintenance_projects',
+      'project_parts',
+      'quotes',
+      'quote_items',
+      'audit_log',
+      'financial_entries',
+      'delivery_routes',
+      'delivery_stops',
+      'recurring_expense_templates',
+      // Tablas de la tienda online
+      'ShopUser',
+      'ShopProduct',
+      'ShopVehicleCompatibility',
+      'ShopCart',
+      'ShopCartItem',
+      'ShopOrder',
+      'ShopOrderItem',
+      'ShopSystemLog'
+    ];
 
-    // Crear backup JSON completo
-    const fullBackup = {
+    const backupData = {
       timestamp: new Date().toISOString(),
-      version: '1.0',
-      counts: {
-        items: items.length,
-        categories: categories.length,
-        locations: locations.length
-      },
-      data: {
-        items,
-        categories,
-        locations
-      }
+      version: '2.0',
+      tables: {}
     };
 
-    // Guardar backup JSON
-    const jsonBackupPath = path.join(backupDir, `backup-${timestamp}.json`);
-    fs.writeFileSync(jsonBackupPath, JSON.stringify(fullBackup, null, 2));
-    console.log(`✅ Backup JSON: ${jsonBackupPath}`);
-
-    // Crear backup CSV para fácil lectura
-    const csvContent = [
-      'nombre,sku,descripcion,estado,categoria,ubicacion,fechaCreacion',
-      ...items.map(item => 
-        `"${item.name}","${item.sku}","${item.description || ''}","${item.status}","${item.category?.name || 'Sin categoría'}","${item.location?.name || 'Sin ubicación'}","${item.createdAt}"`
-      )
-    ].join('\n');
-    
-    const csvBackupPath = path.join(backupDir, `backup-items-${timestamp}.csv`);
-    fs.writeFileSync(csvBackupPath, csvContent);
-    console.log(`✅ Backup CSV: ${csvBackupPath}`);
-
-    // Crear script de restauración
-    const restoreScript = `
-const { PrismaClient } = require('@prisma/client');
-const fs = require('fs');
-
-const prisma = new PrismaClient();
-
-async function restoreBackup() {
-  console.log('🔄 Restaurando backup del ${new Date(timestamp).toLocaleString()}...');
-  
-  const backupData = JSON.parse(fs.readFileSync('${jsonBackupPath}', 'utf8'));
-  
-  console.log(\`📊 Restaurando \${backupData.counts.items} artículos...\`);
-  
-  // Limpiar datos actuales (¡CUIDADO!)
-  await prisma.item.deleteMany();
-  await prisma.category.deleteMany();
-  await prisma.location.deleteMany();
-  
-  // Restaurar categorías
-  for (const category of backupData.data.categories) {
-    await prisma.category.create({
-      data: {
-        id: category.id,
-        name: category.name,
-        createdAt: category.createdAt
+    // Respaldar cada tabla de forma dinámica
+    for (const table of tables) {
+      try {
+        const rows = await prisma.$queryRawUnsafe(`SELECT * FROM \`${table}\``);
+        backupData.tables[table] = rows;
+        console.log(`   • Tabla \`${table}\`: ${rows.length} filas respaldadas`);
+      } catch (tableErr) {
+        console.warn(`   ⚠️ Advertencia: No se pudo respaldar la tabla \`${table}\` (puede que no exista aún):`, tableErr.message);
       }
-    });
-  }
-  
-  // Restaurar ubicaciones
-  for (const location of backupData.data.locations) {
-    await prisma.location.create({
-      data: {
-        id: location.id,
-        name: location.name,
-        type: location.type,
-        createdAt: location.createdAt
-      }
-    });
-  }
-  
-  // Restaurar artículos
-  for (const item of backupData.data.items) {
-    await prisma.item.create({
-      data: {
-        id: item.id,
-        name: item.name,
-        sku: item.sku,
-        description: item.description,
-        status: item.status,
-        categoryId: item.categoryId,
-        locationId: item.locationId,
-        createdAt: item.createdAt,
-        updatedAt: item.updatedAt
-      }
-    });
-  }
-  
-  console.log('✅ ¡Backup restaurado exitosamente!');
-  await prisma.$disconnect();
-}
+    }
 
-restoreBackup().catch(console.error);
-`;
+    // Guardar archivo JSON
+    const backupFileName = `backup-shared-db-${timestamp}.json`;
+    const jsonBackupPath = path.join(backupDir, backupFileName);
+    fs.writeFileSync(jsonBackupPath, JSON.stringify(backupData, null, 2));
+    console.log(`✅ Backup guardado en: ${jsonBackupPath}`);
 
-    const restorePath = path.join(backupDir, `restore-${timestamp}.js`);
-    fs.writeFileSync(restorePath, restoreScript);
-    console.log(`✅ Script restauración: ${restorePath}`);
+    // Insertar registro de auditoría en la BD para que se vea en el panel
+    try {
+      const details = `Copia de seguridad automática diaria completada con éxito. Archivo: ${backupFileName}`;
+      await prisma.$executeRawUnsafe(`
+        INSERT INTO audit_log (action, entityType, entityId, userEmail, userName, details, createdAt)
+        VALUES ('DATABASE_BACKUP', 'SYSTEM', 'BACKUP', 'system@backup.local', 'Sistema de Backup', ?, CURRENT_TIMESTAMP)
+      `, details);
+      console.log('✅ Registro de auditoría guardado en la base de datos.');
+    } catch (auditErr) {
+      console.error('❌ Error al guardar registro de auditoría:', auditErr.message);
+    }
 
-    // Limpiar backups antiguos (mantener solo los últimos 30)
+    // Limpiar backups antiguos (mantener solo los últimos 30 archivos de backup)
     const backupFiles = fs.readdirSync(backupDir)
-      .filter(file => file.startsWith('backup-'))
+      .filter(file => file.startsWith('backup-shared-db-'))
       .map(file => ({
         name: file,
         path: path.join(backupDir, file),
@@ -152,25 +104,14 @@ restoreBackup().catch(console.error);
       });
     }
 
-    console.log('🎉 Backup completado exitosamente!');
-    console.log(`📊 Artículos respaldados: ${items.length}`);
-    console.log(`📂 Categorías respaldadas: ${categories.length}`);
-    console.log(`📍 Ubicaciones respaldadas: ${locations.length}`);
-    
+    console.log('🎉 ¡Copia de seguridad completada con éxito!');
     return {
       success: true,
-      jsonPath: jsonBackupPath,
-      csvPath: csvBackupPath,
-      restorePath,
-      counts: {
-        items: items.length,
-        categories: categories.length,
-        locations: locations.length
-      }
+      path: jsonBackupPath,
     };
 
   } catch (error) {
-    console.error('❌ Error durante backup:', error);
+    console.error('❌ Error general durante backup:', error);
     return { success: false, error: error.message };
   } finally {
     await prisma.$disconnect();

@@ -12,6 +12,16 @@ interface Item {
   barcode: string | null
 }
 
+interface SelectedItem {
+  itemId: number
+  existingPartId: number
+  sku: string
+  name: string
+  quantity: number
+  costPrice: number
+  suggestedPrice: number
+}
+
 interface Supplier {
   id: number
   name: string
@@ -21,13 +31,14 @@ interface NewPurchaseFormProps {
   suppliers: Supplier[]
   items: Item[]
   createPurchaseOrder: (formData: FormData) => Promise<any>
-
 }
 
 export function NewPurchaseForm({ suppliers, items, createPurchaseOrder }: NewPurchaseFormProps) {
   const [selectedSupplierId, setSelectedSupplierId] = useState<number | ''>('')
-  const [selectedItems, setSelectedItems] = useState<{ itemId: number; quantity: number; name: string; costPrice: number }[]>([])
+  const [selectedItems, setSelectedItems] = useState<SelectedItem[]>([])
   const [searchTerm, setSearchTerm] = useState('')
+  const [invoiceRef, setInvoiceRef] = useState('')
+  const [notes, setNotes] = useState('')
   const [loading, setLoading] = useState(false)
   const router = useRouter()
 
@@ -43,7 +54,15 @@ export function NewPurchaseForm({ suppliers, items, createPurchaseOrder }: NewPu
         si.itemId === item.id ? { ...si, quantity: si.quantity + 1 } : si
       ))
     } else {
-      setSelectedItems([...selectedItems, { itemId: item.id, quantity: 1, name: item.name, costPrice: item.costPrice }])
+      setSelectedItems([...selectedItems, {
+        itemId: item.id,
+        existingPartId: item.id,
+        sku: item.barcode || '',
+        name: item.name,
+        quantity: 1,
+        costPrice: item.costPrice,
+        suggestedPrice: item.costPrice,
+      }])
     }
     setSearchTerm('')
   }
@@ -85,7 +104,9 @@ export function NewPurchaseForm({ suppliers, items, createPurchaseOrder }: NewPu
     try {
       const formData = new FormData()
       formData.append('supplierId', selectedSupplierId.toString())
-      formData.append('itemsBought', JSON.stringify(selectedItems))
+      formData.append('invoiceRef', invoiceRef)
+      formData.append('notes', notes)
+      formData.append('items', JSON.stringify(selectedItems))
 
       await createPurchaseOrder(formData)
       router.push('/purchases')
@@ -161,44 +182,67 @@ export function NewPurchaseForm({ suppliers, items, createPurchaseOrder }: NewPu
                 Selecciona refacciones para registrar su entrada.
               </div>
             ) : (
-              <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
-                {selectedItems.map(si => (
-                  <div key={si.itemId} style={{ display: "flex", flexDirection: "column", gap: "1rem", padding: "1.25rem", background: "var(--bg-elevated)", borderRadius: "8px", border: "1px solid var(--border-light)" }}>
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                      <div style={{ fontWeight: 700 }}>{si.name}</div>
-                      <button type="button" onClick={() => removeItem(si.itemId)} style={{ color: "#ef4444", background: "none", border: "none", cursor: "pointer" }}>
-                        <Trash2 size={18} />
-                      </button>
-                    </div>
-                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem" }}>
-                       <div>
-                          <label style={{ fontSize: "0.75rem", color: "var(--text-secondary)", display: "block", marginBottom: "4px" }}>Cantidad que entra</label>
-                          <div style={{ display: "flex", alignItems: "center", gap: "8px", background: "var(--background)", padding: "4px 8px", borderRadius: "6px" }}>
-                            <button type="button" onClick={() => updateQuantity(si.itemId, -1)} style={{ background: "none", border: "none", color: "var(--text-main)", cursor: "pointer" }}>-</button>
-                            <input 
-                              type="number" 
-                              value={si.quantity} 
+              <div style={{ overflowX: "auto" }}>
+                <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                  <thead>
+                    <tr style={{ textAlign: "left", borderBottom: "1px solid var(--border-light)" }}>
+                      <th style={{ padding: "12px 8px", fontSize: "0.75rem", color: "var(--text-secondary)" }}>SKU</th>
+                      <th style={{ padding: "12px 8px", fontSize: "0.75rem", color: "var(--text-secondary)" }}>Descripción</th>
+                      <th style={{ padding: "12px 8px", fontSize: "0.75rem", color: "var(--text-secondary)" }}>Cantidad</th>
+                      <th style={{ padding: "12px 8px", fontSize: "0.75rem", color: "var(--text-secondary)" }}>Costo compra</th>
+                      <th style={{ padding: "12px 8px", fontSize: "0.75rem", color: "var(--text-secondary)" }}>Precio sugerido</th>
+                      <th style={{ padding: "12px 8px", fontSize: "0.75rem", color: "var(--text-secondary)" }}>Total costo</th>
+                      <th style={{ padding: "12px 8px", fontSize: "0.75rem", color: "var(--text-secondary)" }}>Acción</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {selectedItems.map(si => (
+                      <tr key={si.itemId} style={{ borderBottom: "1px solid var(--border-light)" }}>
+                        <td style={{ padding: "12px 8px", verticalAlign: "middle" }}>{si.sku || '—'}</td>
+                        <td style={{ padding: "12px 8px", verticalAlign: "middle" }}>{si.name}</td>
+                        <td style={{ padding: "12px 8px", verticalAlign: "middle" }}>
+                          <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                            <button type="button" onClick={() => updateQuantity(si.itemId, -1)} style={{ background: "none", border: "none", cursor: "pointer", fontWeight: 700 }}>-</button>
+                            <input
+                              type="number"
+                              value={si.quantity}
+                              min={1}
                               onChange={(e) => updateQuantity(si.itemId, Number(e.target.value) - si.quantity)}
-                              style={{ width: "50px", textAlign: "center", background: "none", border: "none", color: "var(--text-main)", fontWeight: 700 }} 
+                              style={{ width: "50px", textAlign: "center", border: "1px solid var(--border-light)", borderRadius: "6px", padding: "4px" }}
                             />
-                            <button type="button" onClick={() => updateQuantity(si.itemId, 1)} style={{ background: "none", border: "none", color: "var(--text-main)", cursor: "pointer" }}>+</button>
+                            <button type="button" onClick={() => updateQuantity(si.itemId, 1)} style={{ background: "none", border: "none", cursor: "pointer", fontWeight: 700 }}>+</button>
                           </div>
-                       </div>
-                       <div>
-                          <label style={{ fontSize: "0.75rem", color: "var(--text-secondary)", display: "block", marginBottom: "4px" }}>Costo Unitario (Compra)</label>
-                          <div style={{ display: "flex", alignItems: "center", gap: "4px", background: "var(--background)", padding: "4px 8px", borderRadius: "6px" }}>
-                            <span style={{ color: "var(--text-secondary)" }}>$</span>
-                            <input 
-                              type="number" 
-                              value={si.costPrice} 
-                              onChange={(e) => updatePrice(si.itemId, Number(e.target.value))}
-                              style={{ width: "100%", background: "none", border: "none", color: "var(--text-main)", fontWeight: 700, outline: "none" }} 
-                            />
-                          </div>
-                       </div>
-                    </div>
-                  </div>
-                ))}
+                        </td>
+                        <td style={{ padding: "12px 8px", verticalAlign: "middle" }}>
+                          <input
+                            type="number"
+                            value={si.costPrice}
+                            min={0}
+                            step="0.01"
+                            onChange={(e) => updatePrice(si.itemId, Number(e.target.value))}
+                            style={{ width: "100%", border: "1px solid var(--border-light)", borderRadius: "6px", padding: "4px" }}
+                          />
+                        </td>
+                        <td style={{ padding: "12px 8px", verticalAlign: "middle" }}>
+                          <input
+                            type="number"
+                            value={si.suggestedPrice}
+                            min={0}
+                            step="0.01"
+                            onChange={(e) => setSelectedItems(selectedItems.map(item => item.itemId === si.itemId ? { ...item, suggestedPrice: Number(e.target.value) } : item))}
+                            style={{ width: "100%", border: "1px solid var(--border-light)", borderRadius: "6px", padding: "4px" }}
+                          />
+                        </td>
+                        <td style={{ padding: "12px 8px", verticalAlign: "middle", fontWeight: 700 }}>${(si.costPrice * si.quantity).toFixed(2)}</td>
+                        <td style={{ padding: "12px 8px", verticalAlign: "middle" }}>
+                          <button type="button" onClick={() => removeItem(si.itemId)} style={{ background: "none", border: "none", color: "#ef4444", cursor: "pointer" }}>
+                            <Trash2 size={16} />
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
             )}
           </div>
@@ -209,7 +253,28 @@ export function NewPurchaseForm({ suppliers, items, createPurchaseOrder }: NewPu
       <div style={{ display: "flex", flexDirection: "column", gap: "1.5rem" }}>
         <div className="card" style={{ padding: "1.5rem", position: "sticky", top: "2rem" }}>
           <h3 style={{ marginBottom: "1.5rem", borderBottom: "1px solid var(--border-light)", paddingBottom: "0.75rem" }}>Resumen de Compra</h3>
-          
+
+          <div style={{ display: "flex", flexDirection: "column", gap: "1rem", marginBottom: "1.5rem" }}>
+            <label style={{ fontSize: "0.75rem", color: "var(--text-secondary)" }}>Factura / Referencia</label>
+            <input
+              type="text"
+              value={invoiceRef}
+              onChange={(e) => setInvoiceRef(e.target.value)}
+              placeholder="Número de factura o referencia"
+              style={{ width: "100%", padding: "12px", borderRadius: "8px", border: "1px solid var(--border-light)", background: "var(--bg-elevated)" }}
+            />
+          </div>
+          <div style={{ display: "flex", flexDirection: "column", gap: "1rem", marginBottom: "2rem" }}>
+            <label style={{ fontSize: "0.75rem", color: "var(--text-secondary)" }}>Notas internas</label>
+            <textarea
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              placeholder="Notas del pedido"
+              rows={3}
+              style={{ width: "100%", padding: "12px", borderRadius: "8px", border: "1px solid var(--border-light)", background: "var(--bg-elevated)" }}
+            />
+          </div>
+
           <div style={{ display: "flex", flexDirection: "column", gap: "1rem", marginBottom: "2rem" }}>
             <div style={{ display: "flex", justifyContent: "space-between" }}>
               <span style={{ color: "var(--text-secondary)" }}>Refacciones</span>

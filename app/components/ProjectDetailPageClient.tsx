@@ -85,7 +85,7 @@ export function ProjectDetailPageClient({ project }: ProjectDetailPageClientProp
                         <span style={{ fontWeight: 700, fontSize: "1.125rem" }}>Orden: {so.orderNumber}</span>
                         <span style={{ marginLeft: "1rem", color: "var(--text-secondary)", fontSize: "0.875rem" }}>
                           <Calendar size={14} style={{ display: "inline", marginRight: "4px", verticalAlign: "text-bottom" }} />
-                          {new Date(so.createdAt).toLocaleDateString()}
+                          {new Date(so.createdAt).toLocaleDateString('es-MX', { timeZone: 'America/Mexico_City' })}
                         </span>
                       </div>
                       <div style={{ display: "flex", gap: "1rem", alignItems: "center" }}>

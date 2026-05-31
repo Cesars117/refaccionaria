@@ -5,12 +5,12 @@ import { ArrowLeft, Plus, ShoppingCart, Truck, Calendar, DollarSign } from 'luci
 import { useLanguage } from '@/app/contexts/LanguageContext'
 
 interface PurchaseOrder {
-  id: number
+  id: string
   orderNumber: string
   status: string
-  totalAmount: number
+  totalCost: number
   supplier: { name: string }
-  _count: { itemsBought: number }
+  items: Array<{ id: string }>
   createdAt: Date
 }
 
@@ -105,18 +105,18 @@ export function PurchasesPageClient({ purchases }: PurchasesPageClientProps) {
               <div style={{ display: 'flex', gap: '24px', marginTop: '12px', paddingLeft: '60px' }}>
                 <span style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--text-secondary)', fontSize: '0.875rem' }}>
                   <ShoppingCart size={14} />
-                  {purchase._count.itemsBought} Refacciones
+                  {purchase.items.length} Refacciones
                 </span>
                 <span style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--text-secondary)', fontSize: '0.875rem' }}>
                   <Calendar size={14} />
-                  {new Date(purchase.createdAt).toLocaleDateString()}
+                  {new Date(purchase.createdAt).toLocaleDateString('es-MX', { timeZone: 'America/Mexico_City' })}
                 </span>
               </div>
             </div>
 
             <div style={{ textAlign: "right" }}>
                <div style={{ fontSize: "0.875rem", color: "var(--text-secondary)", marginBottom: "4px" }}>Total de Compra</div>
-               <div style={{ fontSize: "1.5rem", fontWeight: 800, color: "var(--primary)" }}>${purchase.totalAmount.toLocaleString()}</div>
+               <div style={{ fontSize: "1.5rem", fontWeight: 800, color: "var(--primary)" }}>${purchase.totalCost.toLocaleString()}</div>
             </div>
           </div>
         ))}

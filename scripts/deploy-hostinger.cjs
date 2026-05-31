@@ -26,27 +26,11 @@ async function run() {
     console.log('✅ Archivo deploy.zip subido con éxito.');
 
     console.log('🧹 Limpiando y extrayendo en el servidor...');
-    const commands = [
-      `cd ${remoteDir}`,
-      // 1. Extraer el zip (sobrescribir)
-      `unzip -o deploy.zip`,
-      // 2. Borrar el archivo zip subido
-      `rm deploy.zip`,
-      // 3. Asegurar que .env.production se copie como .env si no existe
-      `cp -n .env.production .env 2>/dev/null || true`,
-      // 4. Reiniciar Passenger
-      `mkdir -p tmp && touch tmp/restart.txt`,
-      // 5. Matar procesos Next.js antiguos para que cargue la nueva versión
-      `pkill -f next-server || true`,
-      `pkill -f "node server.js" || true`
-    ];
-
-    for (const cmd of commands) {
-      console.log(`🏃 Ejecutando: ${cmd}`);
-      const result = await ssh.execCommand(cmd);
-      if (result.stderr) console.log(`   (Detalle): ${result.stderr}`);
-      console.log(`   ${result.stdout || 'OK'}`);
-    }
+    const cmd = `cd ${remoteDir} && unzip -o deploy.zip && rm deploy.zip && cp -n .env.production .env 2>/dev/null || true && mkdir -p tmp && touch tmp/restart.txt && pkill -f next-server || true && pkill -f "node server.js" || true`;
+    console.log(`🏃 Ejecutando: ${cmd}`);
+    const result = await ssh.execCommand(cmd);
+    if (result.stderr) console.log(`   (Detalle): ${result.stderr}`);
+    console.log(`   ${result.stdout || 'OK'}`);
 
     console.log('🏁 ¡DESPLIEGUE COMPLETADO Y SERVIDOR REINICIADO!');
     await ssh.dispose();

@@ -39,7 +39,7 @@ export default function QuoteHeader({
             <User size={14} className="text-gray-400" />
             <span className="font-medium text-gray-900">{quote.customer.name}</span>
             <span className="text-gray-400">·</span>
-            <span className="text-gray-500">{new Date(quote.createdAt).toLocaleDateString('es-MX')}</span>
+            <span className="text-gray-500">{new Date(quote.createdAt).toLocaleDateString('es-MX', { timeZone: 'America/Mexico_City' })}</span>
           </p>
           {quote.vehicleRef && (
             <p className="text-sm text-gray-600 flex items-center gap-2">

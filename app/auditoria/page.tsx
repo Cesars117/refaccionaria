@@ -23,7 +23,19 @@ export default async function AuditoriaPage({
     redirect('/')
   }
 
-  // ... (rest of the code)
+  // Buscar la fecha del último backup registrado en los logs
+  let lastBackupDate: Date | null = null
+  try {
+    const lastBackupLog = await db.auditLog.findFirst({
+      where: { action: 'DATABASE_BACKUP' },
+      orderBy: { createdAt: 'desc' },
+    })
+    if (lastBackupLog) {
+      lastBackupDate = lastBackupLog.createdAt
+    }
+  } catch (err) {
+    console.error('Error fetching last backup log:', err)
+  }
 
   let logs: Array<{
     id: number
@@ -66,7 +78,6 @@ export default async function AuditoriaPage({
     { label: 'Inventario / Partes', value: 'PART' },
     { label: 'Cat. / Ubicaciones', value: 'INVENTORY' },
     { label: 'Clientes', value: 'CUSTOMER' },
-    { label: 'Flotas / Unidades', value: 'FLEET' },
     { label: 'Proyectos', value: 'PROJECT' },
     { label: 'Cotizaciones', value: 'QUOTE' },
     { label: 'Usuarios', value: 'USER' },
@@ -82,6 +93,28 @@ export default async function AuditoriaPage({
 
         <AuditFilter initialType={selectedType || ''} options={filterOptions} />
       </div>
+
+      {lastBackupDate ? (
+        <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-4 flex items-center justify-between text-emerald-800 animate-in fade-in slide-in-from-top-4">
+          <div className="flex items-center gap-2">
+            <span className="flex h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
+            <p className="text-sm font-medium">
+              Base de datos respaldada con éxito. Última copia de seguridad: <span className="font-bold">{new Date(lastBackupDate).toLocaleString('es-MX', { timeZone: 'America/Mexico_City' })}</span>
+            </p>
+          </div>
+          <span className="text-xs bg-emerald-100 text-emerald-800 font-bold px-2.5 py-0.5 rounded-full uppercase tracking-wider">Seguro</span>
+        </div>
+      ) : (
+        <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 flex items-center justify-between text-amber-800">
+          <div className="flex items-center gap-2">
+            <span className="flex h-2 w-2 rounded-full bg-amber-500 animate-pulse" />
+            <p className="text-sm font-medium">
+              No se ha detectado ninguna copia de seguridad reciente. El programador de tareas realiza backups diarios.
+            </p>
+          </div>
+          <span className="text-xs bg-amber-100 text-amber-800 font-bold px-2.5 py-0.5 rounded-full uppercase tracking-wider">Atención</span>
+        </div>
+      )}
 
       <div className="card overflow-hidden">
         <div className="overflow-x-auto w-full">
@@ -104,7 +137,7 @@ export default async function AuditoriaPage({
               logs.map((log) => (
                 <tr key={log.id}>
                   <td className="px-4 py-3 text-xs text-gray-500">
-                    {new Date(log.createdAt).toLocaleString('es-MX')}
+                    {new Date(log.createdAt).toLocaleString('es-MX', { timeZone: 'America/Mexico_City' })}
                   </td>
                   <td className="px-4 py-3 text-sm text-gray-700">
                     <p className="font-medium text-gray-900">{log.userName ?? 'Sistema'}</p>

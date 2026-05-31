@@ -96,7 +96,7 @@ export function FinancePageClient({ stats, invoices }: FinancePageClientProps) {
                           <td style={{ padding: "16px 24px", color: "var(--text-secondary)" }}>
                              <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
                                 <Calendar size={14} />
-                                {new Date(inv.createdAt).toLocaleDateString()}
+                                {new Date(inv.createdAt).toLocaleDateString('es-MX', { timeZone: 'America/Mexico_City' })}
                              </div>
                           </td>
                           <td style={{ padding: "16px 24px", textAlign: "right", fontWeight: 700, color: "var(--primary)" }}>

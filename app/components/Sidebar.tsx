@@ -13,7 +13,6 @@ import {
   MapPin,
   Truck,
   TrendingUp,
-  Building2,
   Shield,
   ClipboardList,
   LogOut,
@@ -51,7 +50,6 @@ const navSections: NavSection[] = [
     items: [
       { name: 'Categorías', href: '/categorias', icon: Tag },
       { name: 'Ubicaciones', href: '/ubicaciones', icon: MapPin },
-      { name: 'Proveedores', href: '/proveedores', icon: Building2, requiresAdmin: true },
     ],
   },
   {
@@ -69,7 +67,7 @@ const navSections: NavSection[] = [
   },
 ];
 
-export default function Sidebar() {
+export default function Sidebar({ onClose }: { onClose?: () => void }) {
   const pathname = usePathname();
   const { data: session } = useSession();
   const userRole = session?.user?.role;
@@ -123,6 +121,7 @@ export default function Sidebar() {
                 <Link
                   key={item.name}
                   href={item.href}
+                  onClick={onClose}
                   className={cn(isActive ? 'sidebar-link-active' : 'sidebar-link')}
                 >
                   <item.icon className="h-5 w-5 flex-shrink-0" />

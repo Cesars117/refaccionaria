@@ -71,12 +71,6 @@ export default function QuoteActions({ quoteId, currentStatus }: { quoteId: stri
       {currentStatus === 'PENDING' && (
         <>
           <button 
-            onClick={() => setShowConfirm('SOLD')}
-            className="btn-primary text-xs py-1.5 px-3 flex items-center gap-1 bg-green-600 hover:bg-green-700 border-none"
-          >
-            <Check size={14} /> Aprobar Venta
-          </button>
-          <button 
             onClick={() => setShowConfirm('CANCELLED')}
             className="btn-secondary text-xs py-1.5 px-3 flex items-center gap-1 text-red-600 border-red-100 hover:bg-red-50"
           >
