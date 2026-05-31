@@ -8,10 +8,12 @@ import { useRouter } from 'next/navigation'
 
 export default function QuoteItemRow({ 
   item, 
-  isOpen 
+  isOpen,
+  showDiscountCols
 }: { 
   item: any, 
-  isOpen: boolean 
+  isOpen: boolean,
+  showDiscountCols: boolean
 }) {
   const router = useRouter()
   const [isEditing, setIsEditing] = useState(false)
@@ -113,11 +115,17 @@ export default function QuoteItemRow({
         <div>{item.description}</div>
       </td>
       <td className="px-3 py-2 text-right text-sm">{item.quantity}</td>
-      <td className="px-3 py-2 text-right text-sm">{formatCurrency(item.unitPrice)}</td>
-      <td className="px-3 py-2 text-right text-sm">{item.discountPct > 0 ? `${item.discountPct}%` : '—'}</td>
-      <td className="px-3 py-2 text-right text-sm text-gray-650 font-medium">
-        {formatCurrency(item.unitPrice * (1 - ((item.discountPct || 0) / 100)))}
-      </td>
+      {showDiscountCols ? (
+        <>
+          <td className="px-3 py-2 text-right text-sm">{formatCurrency(item.unitPrice)}</td>
+          <td className="px-3 py-2 text-right text-sm">{item.discountPct > 0 ? `${item.discountPct}%` : '—'}</td>
+          <td className="px-3 py-2 text-right text-sm text-gray-650 font-medium">
+            {formatCurrency(item.unitPrice * (1 - ((item.discountPct || 0) / 100)))}
+          </td>
+        </>
+      ) : (
+        <td className="px-3 py-2 text-right text-sm">{formatCurrency(item.unitPrice)}</td>
+      )}
       <td className="px-3 py-2 text-right text-sm font-medium">{formatCurrency(item.amount)}</td>
       {isOpen && (
         <td className="px-3 py-2 text-right">

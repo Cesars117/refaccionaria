@@ -549,8 +549,42 @@ export async function updateCustomer(formData: FormData) {
 export async function deleteCustomer(formData: FormData) {
   const id = formData.get('id') as string
   const customer = await db.customer.findUnique({ where: { id }, select: { name: true } })
+  if (!customer) throw new Error('Cliente no encontrado')
+
+  // 1. Obtener todas las cotizaciones del cliente
+  const quotes = await db.quote.findMany({ where: { customerId: id }, select: { id: true } })
+  const quoteIds = quotes.map(q => q.id)
+
+  if (quoteIds.length > 0) {
+    // 2. Eliminar paradas de entrega de estas cotizaciones
+    await db.deliveryStop.deleteMany({ where: { quoteId: { in: quoteIds } } })
+    // 3. Eliminar partidas de estas cotizaciones
+    await db.quoteItem.deleteMany({ where: { quoteId: { in: quoteIds } } })
+    // 4. Eliminar las cotizaciones
+    await db.quote.deleteMany({ where: { customerId: id } })
+  }
+
+  // 5. Obtener flotas asociadas
+  const fleets = await db.fleet.findMany({ where: { customerId: id }, select: { id: true } })
+  const fleetIds = fleets.map(f => f.id)
+
+  if (fleetIds.length > 0) {
+    // 6. Obtener proyectos de mantenimiento
+    const projects = await db.maintenanceProject.findMany({ where: { fleetId: { in: fleetIds } }, select: { id: true } })
+    const projectIds = projects.map(p => p.id)
+    if (projectIds.length > 0) {
+      await db.projectPart.deleteMany({ where: { projectId: { in: projectIds } } })
+      await db.maintenanceProject.deleteMany({ where: { id: { in: projectIds } } })
+    }
+    // Eliminar unidades de flota
+    await db.fleetUnit.deleteMany({ where: { fleetId: { in: fleetIds } } })
+    // Eliminar flotas
+    await db.fleet.deleteMany({ where: { customerId: id } })
+  }
+
+  // 7. Eliminar cliente
   await db.customer.delete({ where: { id } })
-  await logAudit('CUSTOMER_DELETED', 'CUSTOMER', id, `Cliente eliminado: ${customer?.name || id}`)
+  await logAudit('CUSTOMER_DELETED', 'CUSTOMER', id, `Cliente eliminado: ${customer.name}`)
   revalidatePath('/clientes')
   redirect('/clientes')
 }

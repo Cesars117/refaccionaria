@@ -58,6 +58,8 @@ export default async function CotizacionDetailPage({ params }: { params: Promise
     }
   }
   const isOpen = quote.status === 'PENDING';
+  const hasDiscount = quote.items.some((item) => item.discountPct > 0);
+  const showDiscountCols = hasDiscount || isOpen;
 
   return (
     <div className="p-6 max-w-4xl mx-auto">
@@ -101,31 +103,37 @@ export default async function CotizacionDetailPage({ params }: { params: Promise
               <tr>
                 <th className="table-header px-4 py-2">Descripción</th>
                 <th className="table-header px-3 py-2 text-right">Cant.</th>
-                <th className="table-header px-3 py-2 text-right">P. Unit. Normal</th>
-                <th className="table-header px-3 py-2 text-right">Desc. %</th>
-                <th className="table-header px-3 py-2 text-right">P. Unit. c/Desc.</th>
+                {showDiscountCols ? (
+                  <>
+                    <th className="table-header px-3 py-2 text-right">P. Unit. Normal</th>
+                    <th className="table-header px-3 py-2 text-right">Desc. %</th>
+                    <th className="table-header px-3 py-2 text-right">P. Unit. c/Desc.</th>
+                  </>
+                ) : (
+                  <th className="table-header px-3 py-2 text-right">P. Unit.</th>
+                )}
                 <th className="table-header px-3 py-2 text-right">Importe</th>
                 {isOpen && <th className="px-3 py-2" />}
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-50">
               {quote.items.map((item) => (
-                <QuoteItemRow key={item.id} item={item} isOpen={isOpen} />
+                <QuoteItemRow key={item.id} item={item} isOpen={isOpen} showDiscountCols={showDiscountCols} />
               ))}
             </tbody>
             <tfoot className="bg-gray-50">
               <tr>
-                <td colSpan={isOpen ? 6 : 5} className="px-4 py-2 text-right text-xs text-gray-500">Subtotal</td>
+                <td colSpan={isOpen ? (showDiscountCols ? 6 : 4) : (showDiscountCols ? 5 : 3)} className="px-4 py-2 text-right text-xs text-gray-500">Subtotal</td>
                 <td className="px-3 py-2 text-right text-sm">{formatCurrency(quote.subtotal)}</td>
                 {isOpen && <td />}
               </tr>
               <tr>
-                <td colSpan={isOpen ? 6 : 5} className="px-4 py-2 text-right text-xs text-gray-500">IVA 16%</td>
+                <td colSpan={isOpen ? (showDiscountCols ? 6 : 4) : (showDiscountCols ? 5 : 3)} className="px-4 py-2 text-right text-xs text-gray-500">IVA 16%</td>
                 <td className="px-3 py-2 text-right text-sm">{formatCurrency(quote.tax)}</td>
                 {isOpen && <td />}
               </tr>
               <tr>
-                <td colSpan={isOpen ? 6 : 5} className="px-4 py-2 text-right text-sm font-semibold text-gray-700">Total</td>
+                <td colSpan={isOpen ? (showDiscountCols ? 6 : 4) : (showDiscountCols ? 5 : 3)} className="px-4 py-2 text-right text-sm font-semibold text-gray-700">Total</td>
                 <td className="px-3 py-2 text-right text-base font-bold text-gray-900">{formatCurrency(quote.total)}</td>
                 {isOpen && <td />}
               </tr>
