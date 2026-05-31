@@ -41,12 +41,14 @@ export default function PrintTicketButton({ quote }: { quote: Quote }) {
       .map((i) => {
         const skuLine = i.part?.sku ? `SKU: ${i.part.sku}` : 'SKU: —';
         const discountLabel = i.discountPct && i.discountPct > 0 ? `${i.discountPct}%` : '—';
+        const discountedPrice = i.unitPrice * (1 - ((i.discountPct || 0) / 100));
         return `
           <tr>
             <td style="padding: 4px 6px; vertical-align: top;">${i.description}<br/><span style="font-size: 11px; color: #666;">${skuLine}</span></td>
             <td style="padding: 4px 6px; text-align: right;">${i.quantity}</td>
             <td style="padding: 4px 6px; text-align: right;">$${i.unitPrice.toFixed(2)}</td>
             <td style="padding: 4px 6px; text-align: right;">${discountLabel}</td>
+            <td style="padding: 4px 6px; text-align: right;">$${discountedPrice.toFixed(2)}</td>
             <td style="padding: 4px 6px; text-align: right;">$${i.amount.toFixed(2)}</td>
           </tr>`;
       })
@@ -108,9 +110,10 @@ export default function PrintTicketButton({ quote }: { quote: Quote }) {
                 <tr>
                   <th style="text-align: left; padding: 6px; border-bottom: 1px solid #000;">Descripción</th>
                   <th style="text-align: right; padding: 6px; border-bottom: 1px solid #000;">Cant.</th>
-                  <th style="text-align: right; padding: 6px; border-bottom: 1px solid #000;">P. Unit.</th>
-                  <th style="text-align: right; padding: 6px; border-bottom: 1px solid #000;">Desc.</th>
-                  <th style="text-align: right; padding: 6px; border-bottom: 1px solid #000;">Total</th>
+                  <th style="text-align: right; padding: 6px; border-bottom: 1px solid #000;">P. Unit. Normal</th>
+                  <th style="text-align: right; padding: 6px; border-bottom: 1px solid #000;">Desc. %</th>
+                  <th style="text-align: right; padding: 6px; border-bottom: 1px solid #000;">P. Unit. c/Desc.</th>
+                  <th style="text-align: right; padding: 6px; border-bottom: 1px solid #000;">Importe</th>
                 </tr>
               </thead>
               <tbody>${itemsSummary}</tbody>
