@@ -8,6 +8,7 @@ interface QuoteItem {
   quantity: number;
   unitPrice: number;
   amount: number;
+  discountPct?: number;
   part?: {
     sku: string | null;
   };
@@ -37,8 +38,19 @@ export default function PrintTicketButton({ quote }: { quote: Quote }) {
     if (!printWindow) return;
 
     const itemsSummary = quote.items
-      .map((i) => `${i.quantity}x ${i.description} (SKU: ${i.part?.sku || '—'}) - $${i.unitPrice.toFixed(2)} c/u`)
-      .join('\n');
+      .map((i) => {
+        const skuLine = i.part?.sku ? `SKU: ${i.part.sku}` : 'SKU: —';
+        const discountLabel = i.discountPct && i.discountPct > 0 ? `${i.discountPct}%` : '—';
+        return `
+          <tr>
+            <td style="padding: 4px 6px; vertical-align: top;">${i.description}<br/><span style="font-size: 11px; color: #666;">${skuLine}</span></td>
+            <td style="padding: 4px 6px; text-align: right;">${i.quantity}</td>
+            <td style="padding: 4px 6px; text-align: right;">$${i.unitPrice.toFixed(2)}</td>
+            <td style="padding: 4px 6px; text-align: right;">${discountLabel}</td>
+            <td style="padding: 4px 6px; text-align: right;">$${i.amount.toFixed(2)}</td>
+          </tr>`;
+      })
+      .join('');
 
     const ticketHtml = `
       <html>
@@ -74,7 +86,7 @@ export default function PrintTicketButton({ quote }: { quote: Quote }) {
             <table>
               <tr>
                 <td><b>Folio Cotización:</b> ${quote.quoteNumber || '—'}</td>
-                <td><b>Fecha Emisión:</b> ${new Date(quote.createdAt).toLocaleDateString('es-MX')}</td>
+                <td><b>Fecha Emisión:</b> ${new Date(quote.createdAt).toLocaleDateString('es-MX', { timeZone: 'America/Mexico_City' })}</td>
               </tr>
               <tr>
                 <td><b>Cliente:</b> ${quote.customer.name}</td>
@@ -91,7 +103,18 @@ export default function PrintTicketButton({ quote }: { quote: Quote }) {
           </div>
           <div class="details">
             <h4 style="margin-bottom: 5px;">Detalle de Mercancía:</h4>
-            <div style="border: 1px solid #000; padding: 10px; background-color: #fafafa; font-size: 13px; white-space: pre-wrap;">${itemsSummary}</div>
+            <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
+              <thead>
+                <tr>
+                  <th style="text-align: left; padding: 6px; border-bottom: 1px solid #000;">Descripción</th>
+                  <th style="text-align: right; padding: 6px; border-bottom: 1px solid #000;">Cant.</th>
+                  <th style="text-align: right; padding: 6px; border-bottom: 1px solid #000;">P. Unit.</th>
+                  <th style="text-align: right; padding: 6px; border-bottom: 1px solid #000;">Desc.</th>
+                  <th style="text-align: right; padding: 6px; border-bottom: 1px solid #000;">Total</th>
+                </tr>
+              </thead>
+              <tbody>${itemsSummary}</tbody>
+            </table>
           </div>
           <div class="total-section">
             <h3>Subtotal: $${quote.subtotal.toFixed(2)} MXN</h3>
