@@ -153,7 +153,7 @@ export default function PrintTicketButton({ quote }: { quote: Quote }) {
           </div>
           <div class="footer">
             <p>¡Gracias por su preferencia!</p>
-            <p>Soporte Logístico: soporte@radiamex.com</p>
+            <p>Soporte Logístico: info@radiamex.com | Tienda en Línea: radiamex.com</p>
           </div>
         </body>
       </html>
